@@ -1,0 +1,38 @@
+Emberforge Lite — licensing notice
+===================================
+
+Source code
+-----------
+The Emberforge Lite source code is licensed under the MIT License; see the
+LICENSE file. The MIT grant covers the code in this repository.
+
+Demo assets (src/emberforge_lite/demo_assets/)
+----------------------------------------------
+The bundled "evil-treant" demo actor is generated provider output, produced on
+the project owner's own paid subscriptions and included so the offline demo
+works without credentials. It is distributed here as generated output under the
+respective providers' terms, with its copyright status as provided by those
+terms — not as an assertion that the project holds a copyright in every asset:
+
+  - evil_treant_source_openai.png — OpenAI Images (gpt-image-2). OpenAI's terms
+    assign the generating user ownership of the Output.
+
+  - evil_treant_root_slam.mp3, evil_treant_tree_cracking.mp3,
+    evil_treant_extremely_realistic_sound.mp3 — ElevenLabs sound effects. The
+    ElevenLabs paid subscription conveys ownership of the generated files with a
+    full commercial licence.
+
+  - evil_treant_source_spritelab.png, evil_treant_root_slam_preview.gif and its
+    spritesheet — SpriteLab. SpriteLab's paid terms permit commercial use and
+    claim no ownership of the output, but grant no copyright at any tier. Whether
+    a copyright subsists in these assets, and who would hold it, is unsettled and
+    is not asserted here; they are distributed as generated output under those
+    terms.
+
+Provider terms change and are the providers' to define. See docs/providers.md
+for what was reviewed and links to each provider's authoritative terms. This
+notice is not legal advice.
+
+Two ElevenLabs sound-library (stock) downloads that were in the working actor are
+deliberately NOT included in this repository, as they are third-party library
+assets rather than generated output.

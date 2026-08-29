@@ -19,6 +19,14 @@ each asset's provider, prompt, review date, and rights context
 for what those mean and the note that the provider's own current terms are
 authoritative.
 
+**Licensing:** the repository's MIT license covers the **code**. These demo
+**assets** are distributed as generated provider output under the respective
+providers' terms, with copyright status as provided by those terms — the project
+does not assert a copyright in every asset. In particular, OpenAI and ElevenLabs
+assign the generating user ownership, while SpriteLab permits commercial use and
+claims no ownership but grants no copyright at any tier (whether one subsists is
+unsettled and is not asserted here). See the top-level [`NOTICE`](../../../NOTICE).
+
 Two ElevenLabs **sound-library** downloads that were in the working actor are
 intentionally **excluded** here: they are stock library assets, not owned
 generated output, and this repository does not redistribute them.

@@ -61,6 +61,12 @@ class TestPublicFiles:
     def test_license_is_mit(self):
         assert "MIT License" in (REPO / "LICENSE").read_text()
 
+    def test_notice_separates_code_and_assets(self):
+        notice = (REPO / "NOTICE").read_text()
+        assert "MIT" in notice
+        assert "demo_assets" in notice.lower() or "demo assets" in notice.lower()
+        assert "SpriteLab" in notice
+
     @pytest.mark.parametrize("name", ["SECURITY.md", "CONTRIBUTING.md", "CHANGELOG.md"])
     def test_community_file_present(self, name):
         assert (REPO / name).is_file()

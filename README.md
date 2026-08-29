@@ -125,4 +125,6 @@ accounts, no authorization, no multi-user story, not a hosted service. The root
 `server.py`, `build.py`, and `link.py` are deprecated launchers that forward to
 the CLI and will be removed in `v0.2.0`.
 
-Licensed under the [MIT License](LICENSE).
+The code is licensed under the [MIT License](LICENSE). The bundled demo assets
+are generated provider output distributed under the providers' terms with
+copyright status as provided — see [`NOTICE`](NOTICE).

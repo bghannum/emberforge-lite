@@ -291,7 +291,7 @@ product approval. They are deliberately separate from implementation work.
 - [ ] Confirm all code copied from Emberforge can be relicensed under MIT.
 - [ ] Identify third-party snippets or assets that require notices.
 - [ ] Approve `bghannum` as the final copyright identity.
-- [ ] Confirm the committed `evil-treant` **demo art** may be distributed under the repository's MIT license. The OpenAI and ElevenLabs paid terms assign the user ownership of the output; SpriteLab's paid terms permit commercial use and claim no ownership but **grant no copyright** at any tier — whether that supports MIT-relicensing the SpriteLab sprite/animation is an owner legal judgment (the generated-image copyrightability question in general is unsettled).
+- [x] Distinguish the demo art's license from the code's. **Applied 2026-08-29 (owner choice: labeling, not exclusion):** a top-level `NOTICE` and the demo-assets README state that MIT covers the *code*, while the demo *assets* are generated provider output distributed under the providers' terms with copyright status **as provided** — not an assertion that the project holds copyright in every asset. OpenAI/ElevenLabs assign the user ownership; SpriteLab permits commercial use and claims no ownership but grants no copyright, and no copyright is asserted over the SpriteLab assets. Owner to confirm this framing is acceptable (the generated-image copyrightability question in general is unsettled and jurisdiction-dependent; not legal advice).
 
 ### 10.2 Provider terms review — before public release
 
