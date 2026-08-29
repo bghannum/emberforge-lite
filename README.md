@@ -11,6 +11,14 @@ One folder per actor on disk, one static page per actor, and a standard-library
 Python server that reads and writes that folder. No database, no framework, no
 runtime dependencies. Python 3.9–3.13, macOS and Linux.
 
+## Why
+
+My sprites, animations, and sounds ended up scattered — across folders,
+provider dashboards, and one-off exports — with no single place to see an actor
+whole. I wanted one location where I could open an actor and view everything
+that belongs to it: its sprites, its animations, and each sound played *against*
+the animation it goes with. Emberforge Lite is that place.
+
 ## Install
 
 ```bash

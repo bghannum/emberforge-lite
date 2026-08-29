@@ -6,6 +6,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-29
+
 ### Added
 
 - Installable package with an `emberforge-lite` console entry point and the
@@ -37,4 +39,5 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Root `server.py`, `build.py`, and `link.py` are thin launchers that forward to
   the CLI; they are retained through `v0.1.x` and will be removed in `v0.2.0`.
 
-[Unreleased]: https://github.com/bghannum/emberforge-lite/commits/main
+[Unreleased]: https://github.com/bghannum/emberforge-lite/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/bghannum/emberforge-lite/releases/tag/v0.1.0
