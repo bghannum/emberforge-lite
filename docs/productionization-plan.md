@@ -217,7 +217,7 @@ JS (provider badge populated, custom modal opened), and logged zero console/CSP 
 | Complete | Replace private or local parent-repository references and inherited references to absent `AGENTS.md` and `PROJECT_SCOPE.md`. (Rewritten to point at the new docs; `test_showcase.py::TestNoPrivateReferences`.) |
 | Complete | Lead the README with a screenshot or short GIF, installation command, `emberforge-lite demo`, the safety model, and a concise architecture diagram. (`docs/images/actor-page.jpg` — **owner to approve as the public presentation, §10.4**.) |
 | Complete | Label provider costs as dated snapshots and link to authoritative sources. (README + `docs/providers.md`, reviewed 2026-08-22 — **owner to confirm terms, §10.2**.) |
-| Complete | Commit a synthetic demo actor containing a sprite, animation, sound, links, ledger, and provenance, clearly labeled as deterministic fake-provider output under the repository license. (`src/emberforge_lite/demo_assets/ember-familiar/` + its README; packaged in the wheel.) |
+| Complete | Commit a demo actor containing sprites, an animation, sounds, links, ledger, and provenance under the repository license. (`src/emberforge_lite/demo_assets/evil-treant/` + its README; packaged in the wheel.) Owner decision (2026-08-29): ship the **owned** `evil-treant` sample — sprites/animation/sounds generated on the owner's own **paid** SpriteLab/OpenAI/ElevenLabs subscriptions — instead of the earlier procedural placeholder. Two ElevenLabs **sound-library** downloads from the working actor are excluded (stock assets, unlinked, not owned); provenance records the rest as owned/exclusive. `generations.jsonl` and provenance carry the real prompts, published deliberately as part of the showcase. |
 | Complete | Add GitHub issue templates and repository topics. (`.github/ISSUE_TEMPLATE/`; **topics are set via GitHub admin, §10.5**.) |
 
 ### Codex skill
@@ -291,6 +291,7 @@ product approval. They are deliberately separate from implementation work.
 - [ ] Confirm all code copied from Emberforge can be relicensed under MIT.
 - [ ] Identify third-party snippets or assets that require notices.
 - [ ] Approve `bghannum` as the final copyright identity.
+- [ ] Confirm the committed `evil-treant` **demo art** may be distributed under the repository's MIT license. The OpenAI and ElevenLabs paid terms assign the user ownership of the output; SpriteLab's paid terms permit commercial use and claim no ownership but **grant no copyright** at any tier — whether that supports MIT-relicensing the SpriteLab sprite/animation is an owner legal judgment (the generated-image copyrightability question in general is unsettled).
 
 ### 10.2 Provider terms review — before public release
 
@@ -305,7 +306,7 @@ product approval. They are deliberately separate from implementation work.
 - [x] Confirm whether generated outputs may be redistributed and whether attribution is required. *(Documented per provider; OpenAI display/reuse and attribution recorded as open, not resolved favorably.)*
 - [x] Confirm the account-rights labels used by the adapters. *(`spritelab_paid_private_exclusive`, `openai_api_assigned_exclusive`, `paid_commercial_exclusive`.)*
 - [x] Approve the documented pricing snapshots and review dates. *(Table in docs/providers.md; owner to give final sign-off.)*
-- [x] Keep real prompts and current actor outputs out of the public demo; it remains synthetic. *(Demo actor is procedurally generated; no real prompts/outputs.)*
+- [x] ~~Keep real prompts and current actor outputs out of the public demo; it remains synthetic.~~ **Superseded by owner decision 2026-08-29:** the demo now ships the owned `evil-treant` sample (paid-subscription output), so its real prompts and outputs are published deliberately. The two ElevenLabs sound-library (stock) downloads are excluded.
 
 ### 10.3 Credential hygiene — before making the repository public
 
@@ -315,9 +316,10 @@ product approval. They are deliberately separate from implementation work.
 
 ### 10.4 Showcase approval
 
-- [ ] Review the synthetic actor, screenshot or GIF, repository name and description, and README positioning.
-- [ ] Confirm no personal paths, balances, prompts, account identifiers, or private Emberforge links appear.
-- [ ] Approve the final screenshots as the primary public presentation of the project.
+- [ ] Review the `evil-treant` sample actor (owned, paid-subscription output), the screenshot, repository name and description, and README positioning.
+- [ ] Confirm the demo's real prompts (in `generations.jsonl` and `provenance.json`) are intended to be public, and that no balances, account identifiers, or private links appear. *(No balances/account IDs are shipped; prompts are published deliberately.)*
+- [ ] Confirm the two excluded ElevenLabs sound-library downloads should stay excluded (or, if their library license permits redistribution, decide to include them).
+- [ ] Approve the final screenshot as the primary public presentation of the project.
 
 ### 10.5 GitHub administration
 

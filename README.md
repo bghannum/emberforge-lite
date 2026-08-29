@@ -5,7 +5,7 @@ characters. For each **actor** you see its sprites and animations, hear each
 sound *against* the animation it belongs to, and — when you choose to — generate
 new assets through provider APIs, without leaving the page.
 
-![An actor page in Emberforge Lite: a sprite, an animation with a speed dial, and the offline generate panel.](docs/images/actor-page.jpg)
+![The evil-treant actor page in Emberforge Lite: two source sprites, the root-slam animation with a speed dial, and the offline generate panel.](docs/images/actor-page.jpg)
 
 One folder per actor on disk, one static page per actor, and a standard-library
 Python server that reads and writes that folder. No database, no framework, no
@@ -23,10 +23,12 @@ pipx install git+https://github.com/bghannum/emberforge-lite.git@v0.1.0
 emberforge-lite demo
 ```
 
-This serves a synthetic, deterministic actor on `http://127.0.0.1:8000/` with no
-network and no credentials. Open the URL and explore: watch the animation at
-different speeds, play the linked sound against it, and open the **Generate**
-panel (it answers with offline fakes).
+This serves the **evil-treant** sample actor on `http://127.0.0.1:8000/` with no
+network and no credentials — real sprites, animation, and sounds generated on the
+author's own paid provider subscriptions (see
+[the sample's provenance notes](src/emberforge_lite/demo_assets/README.md)). Open
+the URL and explore: watch the animation at different speeds, play a linked sound
+against it, and open the **Generate** panel (it answers with offline fakes).
 
 ## Use it on your own actors
 

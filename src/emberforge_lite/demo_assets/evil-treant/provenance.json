@@ -1,0 +1,129 @@
+{
+  "assets": {
+    "animations/evil_treant_root_slam_preview.gif": {
+      "account_rights": "spritelab_paid_private_exclusive",
+      "attribution_required": false,
+      "attribution_text": null,
+      "generated_at": "2026-08-28T23:31:29+00:00",
+      "model": null,
+      "prompt": "From the hunched idle, rear back and raise both clawed branch arms high, then slam them down hard into the ground with a burst of dirt and leaves. Then return all the way to the idle: the last frame must show the same hunched standing pose as the first. Feet stay planted; the body does not travel.",
+      "provider": "spritelab",
+      "reported_charge": null,
+      "source": "generated",
+      "terms_reviewed_at": "2026-08-22",
+      "transforms": [],
+      "vendor": {
+        "provider_key": "spritelab_animate"
+      }
+    },
+    "sheets/evil_treant_root_slam_sheet.png": {
+      "account_rights": "spritelab_paid_private_exclusive",
+      "attribution_required": false,
+      "attribution_text": null,
+      "generated_at": "2026-08-28T23:31:29+00:00",
+      "model": null,
+      "prompt": "From the hunched idle, rear back and raise both clawed branch arms high, then slam them down hard into the ground with a burst of dirt and leaves. Then return all the way to the idle: the last frame must show the same hunched standing pose as the first. Feet stay planted; the body does not travel.",
+      "provider": "spritelab",
+      "reported_charge": null,
+      "source": "generated",
+      "terms_reviewed_at": "2026-08-22",
+      "transforms": [],
+      "vendor": {
+        "provider_key": "spritelab_animate"
+      }
+    },
+    "sounds/evil_treant_extremely_realistic_sound.mp3": {
+      "account_rights": "paid_commercial_exclusive",
+      "attribution_required": false,
+      "attribution_text": null,
+      "generated_at": "2026-08-29T00:36:29+00:00",
+      "model": null,
+      "prompt": "Extremely realistic sound of a large tree slamming into the ground in the forest",
+      "provider": "elevenlabs",
+      "reported_charge": {
+        "amount": "8",
+        "unit": "elevenlabs_credits"
+      },
+      "source": "generated",
+      "terms_reviewed_at": "2026-08-22",
+      "transforms": [],
+      "vendor": {
+        "provider_key": "elevenlabs"
+      }
+    },
+    "sounds/evil_treant_root_slam.mp3": {
+      "account_rights": "paid_commercial_exclusive",
+      "attribution_required": false,
+      "attribution_text": null,
+      "generated_at": "2026-08-28T23:31:47+00:00",
+      "model": null,
+      "prompt": "A heavy wooden creak winding up, then a deep thudding slam of roots into packed earth with a scatter of dry leaves and a short low rumble tail. No metal, no scraping, no music, no voice.",
+      "provider": "elevenlabs",
+      "reported_charge": {
+        "amount": "8",
+        "unit": "elevenlabs_credits"
+      },
+      "source": "generated",
+      "terms_reviewed_at": "2026-08-22",
+      "transforms": [],
+      "vendor": {
+        "provider_key": "elevenlabs"
+      }
+    },
+    "sounds/evil_treant_tree_cracking.mp3": {
+      "account_rights": "paid_commercial_exclusive",
+      "attribution_required": false,
+      "attribution_text": null,
+      "generated_at": "2026-08-29T00:34:44+00:00",
+      "model": null,
+      "prompt": "Sound of a tree cracking",
+      "provider": "elevenlabs",
+      "reported_charge": {
+        "amount": "8",
+        "unit": "elevenlabs_credits"
+      },
+      "source": "generated",
+      "terms_reviewed_at": "2026-08-22",
+      "transforms": [],
+      "vendor": {
+        "provider_key": "elevenlabs"
+      }
+    },
+    "sprites/evil_treant_source_openai.png": {
+      "account_rights": "openai_api_assigned_exclusive",
+      "attribution_required": false,
+      "attribution_text": null,
+      "generated_at": "2026-08-28T23:29:11+00:00",
+      "model": "gpt-image-2",
+      "prompt": "A gnarled evil treant: a hunched walking tree with a snarling bark face, glowing amber eyes, clawed root feet and twisted branch arms, moss and dead leaves, pixel art, side view facing right, transparent background",
+      "provider": "openai_images",
+      "reported_charge": null,
+      "source": "generated",
+      "terms_reviewed_at": "2026-08-22",
+      "transforms": [],
+      "vendor": {
+        "provider_key": "openai"
+      }
+    },
+    "sprites/evil_treant_source_spritelab.png": {
+      "account_rights": "spritelab_paid_private_exclusive",
+      "attribution_required": false,
+      "attribution_text": null,
+      "generated_at": "2026-08-28T23:28:50+00:00",
+      "model": null,
+      "prompt": "A gnarled evil treant: a hunched walking tree with a snarling bark face, glowing amber eyes, clawed root feet and twisted branch arms, moss and dead leaves, pixel art, side view facing right, transparent background",
+      "provider": "spritelab",
+      "reported_charge": {
+        "amount": "1",
+        "unit": "spritelab_credits"
+      },
+      "source": "generated",
+      "terms_reviewed_at": "2026-08-22",
+      "transforms": [],
+      "vendor": {
+        "provider_key": "spritelab_source_epic"
+      }
+    }
+  },
+  "schema_version": 1
+}

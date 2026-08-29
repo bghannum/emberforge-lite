@@ -9,7 +9,7 @@ import pytest
 
 from emberforge_lite import cli
 from emberforge_lite.config import Paths
-from emberforge_lite.demo import synthesize_demo_actor
+from emberforge_lite.demo import DEMO_SLUG, synthesize_demo_actor
 from emberforge_lite.providers.base import GenerationRequest, ProviderRejected
 from emberforge_lite.providers.fakes import _png, _tiny_gif
 from emberforge_lite.providers.spritelab import SpriteLab
@@ -42,7 +42,7 @@ class TestCliLink:
     def test_link_missing_animation(self, tmp_path, capsys):
         paths = Paths(tmp_path / "data").ensure()
         synthesize_demo_actor(paths.actors)
-        rc = cli.main(["link", "ember-familiar", "nope.gif", "nope.wav", "--data-dir", str(paths.data_dir)])
+        rc = cli.main(["link", DEMO_SLUG, "nope.gif", "nope.wav", "--data-dir", str(paths.data_dir)])
         assert rc == 1
         assert "error" in capsys.readouterr().err
 

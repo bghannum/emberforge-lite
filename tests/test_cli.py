@@ -71,7 +71,7 @@ class TestSplitLayoutServing:
             # The actor page emits actors/<slug>/... URLs that the server serves.
             status, _, body = get(port, f"/actor-{DEMO_SLUG}.html")
             assert status == 200
-            assert b"actors/ember-familiar/" in body
+            assert f"actors/{DEMO_SLUG}/".encode() in body
 
             sprite = next((actor / "sprites").iterdir()).name
             status, resp, _ = get(port, f"/actors/{DEMO_SLUG}/sprites/{sprite}")

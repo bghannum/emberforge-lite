@@ -15,7 +15,7 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Per-actor asset provenance (`provenance.json`, schema v1) and a UI badge that
   marks each asset generated / uploaded / rights-unknown.
 - Structured, redacting local event log.
-- An offline, deterministic `demo` actor requiring no network or credentials.
+- An offline `demo` (the owned `evil-treant` sample actor) requiring no network or credentials.
 - Packaged static CSS/JS served at `/static/`; a strict Content-Security-Policy;
   in-page toast and modal replacing browser dialogs.
 - MIT license, security policy, contributing guide, and architecture, threat

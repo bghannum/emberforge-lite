@@ -1,11 +1,14 @@
-"""A deterministic, offline demo actor and the `demo` command.
+"""The offline demo actor and the `demo` command.
 
-The demo needs no credentials and no network. A committed, rights-safe synthetic
-actor ships under ``demo_assets/`` (see its README); ``run_demo`` copies it into
-a data directory and serves it. ``synthesize_demo_actor`` is the generator that
-produced those files and is used by the tests; both use the deterministic byte
-generators the fake providers use, so the sprite, animation, and sound are
-procedural placeholders rather than third-party art.
+The demo needs no credentials and no network. A committed sample actor -- the
+"evil-treant", generated on the owner's own paid SpriteLab, OpenAI, and
+ElevenLabs subscriptions -- ships under ``demo_assets/`` with its ledger and
+provenance (see its README for the rights context). ``run_demo`` copies it into a
+data directory and serves it.
+
+``synthesize_demo_actor`` builds a *procedural* stand-in actor from the
+deterministic fake-provider byte generators; it is a fallback for a package that
+somehow lacks the committed assets, and a lightweight fixture for the tests.
 """
 
 from __future__ import annotations
@@ -20,7 +23,7 @@ from emberforge_lite import build, generate, provenance, server
 from emberforge_lite.config import Paths
 from emberforge_lite.providers.fakes import FAKE_NOW, FAKE_PREVIEW_GIF, _png, _wav
 
-DEMO_SLUG = "ember-familiar"
+DEMO_SLUG = "evil-treant"
 DEMO_ASSETS = Path(__file__).parent / "demo_assets"
 
 

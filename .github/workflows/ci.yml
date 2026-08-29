@@ -113,17 +113,28 @@ jobs:
           PY
       - name: Offline, no-credential provider-contract suite
         run: pytest tests/test_provider_contracts.py -q
-      - name: Generated-artifact consistency
+      - name: Demo-actor consistency (validates the committed sample)
         run: |
           python - <<'PY'
-          from pathlib import Path
-          from emberforge_lite.demo import synthesize_demo_actor
-          import shutil
-          dest = Path("src/emberforge_lite/demo_assets/ember-familiar")
-          shutil.rmtree(dest)
-          synthesize_demo_actor(Path("src/emberforge_lite/demo_assets"))
+          import sys
+          from emberforge_lite import media, provenance
+          from emberforge_lite.demo import DEMO_ASSETS, DEMO_SLUG
+          actor = DEMO_ASSETS / DEMO_SLUG
+          # Every shipped media file validates by header, and no ElevenLabs
+          # sound-library (stock) download is redistributed.
+          for f in sorted(actor.rglob("*")):
+              if f.suffix in (".png", ".gif"):
+                  media.validate(f)
+              elif f.suffix in (".mp3", ".wav"):
+                  media.inspect_audio(f.read_bytes())
+              if "Elevenlabs" in f.name:
+                  print("stock library asset must not be shipped:", f.name)
+                  sys.exit(1)
+          # Every shipped asset has a provenance entry recording owned rights.
+          assets = provenance.load(actor)["assets"]
+          assert assets and all(e["source"] == "generated" for e in assets.values())
+          print(f"demo actor '{DEMO_SLUG}' OK: {len(assets)} generated assets")
           PY
-          git diff --exit-code -- src/emberforge_lite/demo_assets
       - name: Secret-pattern scan
         run: |
           python - <<'PY'

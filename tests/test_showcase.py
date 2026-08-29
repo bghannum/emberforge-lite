@@ -17,9 +17,9 @@ class TestPackagedDemoActor:
     def test_assets_present_and_valid(self):
         actor = DEMO_ASSETS / DEMO_SLUG
         assert actor.is_dir()
-        media.validate(actor / "sprites" / "ember_familiar_source.png")
-        media.validate(actor / "animations" / "ember_familiar_idle_preview.gif")
-        media.inspect_audio((actor / "sounds" / "ember_familiar_chime.wav").read_bytes())
+        media.validate(actor / "sprites" / "evil_treant_source_openai.png")
+        media.validate(actor / "animations" / "evil_treant_root_slam_preview.gif")
+        media.inspect_audio((actor / "sounds" / "evil_treant_root_slam.mp3").read_bytes())
         assert (actor / "links.json").is_file()
         assert (actor / "generations.jsonl").is_file()
         assert (actor / "provenance.json").is_file()
@@ -30,8 +30,14 @@ class TestPackagedDemoActor:
         _install_demo_actor(actors)
         actor = actors / DEMO_SLUG
         assert actor.is_dir()
-        entry = provenance.entry_for(actor, "sprites/ember_familiar_source.png")
+        entry = provenance.entry_for(actor, "sprites/evil_treant_source_openai.png")
         assert entry["source"] == "generated"
+        assert entry["account_rights"] == "openai_api_assigned_exclusive"
+
+    def test_no_stock_library_sounds_shipped(self):
+        # The two ElevenLabs sound-library downloads must not be redistributed.
+        sounds = {p.name for p in (DEMO_ASSETS / DEMO_SLUG / "sounds").glob("*")}
+        assert not any("Elevenlabs" in n for n in sounds)
 
 
 class TestNoPrivateReferences:
