@@ -14,10 +14,8 @@ from contextlib import contextmanager
 
 import pytest
 
-import build
-import generate
-import server
-from providers.fakes import _png, _wav
+from emberforge_lite import build, generate, server
+from emberforge_lite.providers.fakes import _png, _wav
 
 
 @contextmanager

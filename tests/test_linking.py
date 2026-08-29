@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from linking import (
+from emberforge_lite.linking import (
     add_link,
     remove_animation,
     remove_link,

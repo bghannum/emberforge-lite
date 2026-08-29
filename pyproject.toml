@@ -1,17 +1,33 @@
-# Emberforge Lite — development tooling configuration.
+# Emberforge Lite packaging and development tooling.
 #
-# The *installed* application is standard-library only; the entries below are
-# development-time only (test runner, linter, coverage). Full package build
-# metadata is added in Milestone 2.
+# The installed application is standard-library only (`dependencies = []`).
+# The `dev` extra pulls in the test runner, coverage, and linter, which are not
+# required at runtime.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "emberforge-lite"
-version = "0.1.0.dev0"
+version = "0.1.0"
 description = "Local-first review workbench for generated game-character assets."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "bghannum" }]
+keywords = ["pixel-art", "game-development", "asset-pipeline", "generative-ai"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+]
 dependencies = []
 
 [project.optional-dependencies]
@@ -19,7 +35,20 @@ dev = [
     "pytest>=7.4",
     "pytest-cov>=4.1",
     "ruff>=0.5",
+    "build>=1.0",
 ]
+
+[project.scripts]
+emberforge-lite = "emberforge_lite.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/bghannum/emberforge-lite"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -27,19 +56,7 @@ addopts = "-q"
 
 [tool.coverage.run]
 branch = true
-source = [
-    "naming",
-    "linking",
-    "media",
-    "audiotools",
-    "gifspeed",
-    "pngtools",
-    "credentials",
-    "generate",
-    "build",
-    "server",
-    "providers",
-]
+source = ["emberforge_lite"]
 omit = ["tests/*"]
 
 [tool.coverage.report]
@@ -51,8 +68,6 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B"]
-# `providers` and `media` deliberately reach into internal helpers across
-# modules; the characterization suite pins that behavior.
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]

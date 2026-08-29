@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-import build
-from providers.fakes import FAKE_PREVIEW_GIF, _png, _wav
+from emberforge_lite import build
+from emberforge_lite.providers.fakes import FAKE_PREVIEW_GIF, _png, _wav
 
 
 @pytest.fixture

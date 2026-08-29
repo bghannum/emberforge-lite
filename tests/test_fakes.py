@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import pytest
 
-import media
-from providers.base import (
+from emberforge_lite import media
+from emberforge_lite.providers.base import (
     AuthenticationFailed,
     GenerationRequest,
     ProviderRejected,
 )
-from providers.fakes import (
+from emberforge_lite.providers.fakes import (
     FailureScript,
     FakeElevenLabs,
     FakeOpenAIImages,

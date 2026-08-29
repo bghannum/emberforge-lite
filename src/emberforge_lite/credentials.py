@@ -10,8 +10,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-ROOT = Path(__file__).parent
-
 KEYS = {
     "spritelab": "SPRITELAB_API_KEY",
     "openai": "OPENAI_API_KEY",
@@ -19,12 +17,13 @@ KEYS = {
 }
 
 
-def load_env_file(path: Path = ROOT / ".env") -> list[str]:
+def load_env_file(path: Path) -> list[str]:
     """Set `NAME=value` lines from `path` into the environment, if not already set.
 
-    Returns the names it filled. Same shape as emberforge's shim: no quoting
-    rules beyond stripping one pair of matching quotes, no export keyword, no
-    interpolation. A missing file is not an error.
+    Called only with an explicit path (a `--env-file`); Emberforge Lite never
+    searches the repository or working directory for a `.env`. Returns the names
+    it filled. No quoting rules beyond stripping one pair of matching quotes, no
+    export keyword, no interpolation. A missing file is not an error.
     """
     filled: list[str] = []
     if not path.is_file():

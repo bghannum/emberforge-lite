@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-import media
-import pngtools
-from pngtools import PngUnsupported, decode_rgba, fit_png
+from emberforge_lite import media, pngtools
+from emberforge_lite.pngtools import PngUnsupported, decode_rgba, fit_png
 
 
 class TestDecode:

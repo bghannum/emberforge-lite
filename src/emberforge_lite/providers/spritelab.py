@@ -35,7 +35,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from media import (
+from emberforge_lite.media import (
     GIF_SIGNATURES,
     MAX_FILE_BYTES,
     PNG_SIGNATURE,
@@ -43,7 +43,7 @@ from media import (
     inspect_gif,
     inspect_png,
 )
-from providers.base import (
+from emberforge_lite.providers.base import (
     AmbiguousOutcome,
     AuthenticationFailed,
     Candidate,
@@ -59,7 +59,7 @@ from providers.base import (
     Stage,
     SubmissionReceipt,
 )
-from providers.transport import (
+from emberforge_lite.providers.transport import (
     Response,
     Transport,
     TransportError,

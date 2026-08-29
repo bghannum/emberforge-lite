@@ -27,14 +27,10 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-import build
-import credentials
-import gifspeed
-import media
-import pngtools
-from linking import add_link
-from naming import asset_stem, sanitize_filename, sanitize_slug, unique_path
-from providers.base import (
+from emberforge_lite import build, credentials, gifspeed, media, pngtools
+from emberforge_lite.linking import add_link
+from emberforge_lite.naming import asset_stem, sanitize_filename, sanitize_slug, unique_path
+from emberforge_lite.providers.base import (
     AmbiguousOutcome,
     AuthenticationFailed,
     GenerationRequest,
@@ -42,11 +38,17 @@ from providers.base import (
     ProviderRejected,
     RateLimited,
 )
-from providers.transport import redact
+from emberforge_lite.providers.transport import redact
 
 ROOT = Path(__file__).parent
 ACTORS_DIR = ROOT / "actors"
 LEDGER_NAME = "generations.jsonl"
+
+
+def configure_paths(paths) -> None:
+    """Point actor storage at ``paths.actors``."""
+    global ACTORS_DIR
+    ACTORS_DIR = paths.actors
 
 DEFAULT_FRAMES = 16
 MAX_FRAMES = 64
@@ -86,10 +88,15 @@ class GenerateError(Exception):
 # -- Provider selection ------------------------------------------------------
 
 
-def select_providers(allow_spend: bool) -> dict[str, Any]:
-    """Fakes when spend is not allowed; otherwise live, for configured keys only."""
+def select_providers(allow_spend: bool, env_file: Path | None = None) -> dict[str, Any]:
+    """Fakes when spend is not allowed; otherwise live, for configured keys only.
+
+    Credentials come from the process environment. An ``.env`` file is read only
+    when one is explicitly supplied via ``env_file``; the repository and working
+    directory are never searched.
+    """
     if not allow_spend:
-        from providers.fakes import (
+        from emberforge_lite.providers.fakes import (
             FakeElevenLabs,
             FakeOpenAIImages,
             FakeSpriteLab,
@@ -104,30 +111,31 @@ def select_providers(allow_spend: bool) -> dict[str, Any]:
             "elevenlabs": FakeElevenLabs(),
         }
 
-    credentials.load_env_file()
+    if env_file is not None:
+        credentials.load_env_file(Path(env_file))
     have = credentials.configured()
     chosen: dict[str, Any] = {}
     if have["spritelab"]:
-        from providers.spritelab import SpriteLab, SpriteLabSource
+        from emberforge_lite.providers.spritelab import SpriteLab, SpriteLabSource
 
         chosen["spritelab_animate"] = SpriteLab()
         chosen["spritelab_source_epic"] = SpriteLabSource(quality="epic")
         chosen["spritelab_source_mythic"] = SpriteLabSource(quality="mythic")
     if have["openai"]:
-        from providers.openai_images import OpenAIImages
+        from emberforge_lite.providers.openai_images import OpenAIImages
 
         chosen["openai"] = OpenAIImages()
     if have["elevenlabs"]:
-        from providers.elevenlabs import ElevenLabs
+        from emberforge_lite.providers.elevenlabs import ElevenLabs
 
         chosen["elevenlabs"] = ElevenLabs()
     return chosen
 
 
-def configure(allow_spend: bool) -> None:
+def configure(allow_spend: bool, env_file: Path | None = None) -> None:
     global PROVIDERS, LIVE
     LIVE = allow_spend
-    PROVIDERS = select_providers(allow_spend)
+    PROVIDERS = select_providers(allow_spend, env_file)
 
 
 def provider_status() -> dict[str, Any]:

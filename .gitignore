@@ -23,3 +23,6 @@ htmlcov/
 *.egg-info/
 build/
 dist/
+
+# Deprecated root launchers write here when pointed at the repo
+/site/

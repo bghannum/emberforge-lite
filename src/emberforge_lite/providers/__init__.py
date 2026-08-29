@@ -5,7 +5,7 @@ Live adapters: `spritelab.SpriteLab` / `SpriteLabSource`, `openai_images.OpenAII
 lives in `generate.select_providers`, and nowhere else.
 """
 
-from providers.base import (
+from emberforge_lite.providers.base import (
     AmbiguousOutcome,
     AuthenticationFailed,
     Candidate,
@@ -14,7 +14,7 @@ from providers.base import (
     ProviderRejected,
     RateLimited,
 )
-from providers.transport import redact
+from emberforge_lite.providers.transport import redact
 
 __all__ = [
     "AmbiguousOutcome",

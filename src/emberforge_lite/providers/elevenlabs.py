@@ -43,8 +43,8 @@ from datetime import date, datetime, timezone
 from decimal import ROUND_UP, Decimal, InvalidOperation
 from typing import Any
 
-from media import Rejected, audio_kind, inspect_audio
-from providers.base import (
+from emberforge_lite.media import Rejected, audio_kind, inspect_audio
+from emberforge_lite.providers.base import (
     AmbiguousOutcome,
     AuthenticationFailed,
     Candidate,
@@ -58,7 +58,7 @@ from providers.base import (
     Stage,
     SubmissionReceipt,
 )
-from providers.transport import (
+from emberforge_lite.providers.transport import (
     Response,
     Transport,
     TransportError,

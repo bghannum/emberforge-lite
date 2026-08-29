@@ -6,8 +6,8 @@ import struct
 
 import pytest
 
-import media
-from media import (
+from emberforge_lite import media
+from emberforge_lite.media import (
     Rejected,
     audio_kind,
     inspect_audio,
@@ -20,7 +20,7 @@ from media import (
     validate,
     validate_source,
 )
-from providers.fakes import _png
+from emberforge_lite.providers.fakes import _png
 
 
 class TestInspectPng:

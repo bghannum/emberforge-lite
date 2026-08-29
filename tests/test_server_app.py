@@ -14,10 +14,8 @@ from contextlib import contextmanager
 
 import pytest
 
-import build
-import generate
-import server
-from providers.fakes import _png, _wav
+from emberforge_lite import build, generate, server
+from emberforge_lite.providers.fakes import _png, _wav
 
 
 @contextmanager
@@ -50,7 +48,7 @@ def data_root(tmp_path):
     hero = root / "actors" / "hero"
     for sub in ("sprites", "animations", "sounds"):
         (hero / sub).mkdir(parents=True)
-    from pngtools import fit_png
+    from emberforge_lite.pngtools import fit_png
 
     (hero / "sprites" / "base.png").write_bytes(fit_png(_png(64, 64, b"s"))[0])
     (hero / "animations" / "idle.gif").write_bytes(server.slow_gif(_gif(), 1))
@@ -59,7 +57,7 @@ def data_root(tmp_path):
 
 
 def _gif() -> bytes:
-    from providers.fakes import FAKE_PREVIEW_GIF
+    from emberforge_lite.providers.fakes import FAKE_PREVIEW_GIF
 
     return FAKE_PREVIEW_GIF
 

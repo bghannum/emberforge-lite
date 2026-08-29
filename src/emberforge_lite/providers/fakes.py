@@ -25,7 +25,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from providers.base import (
+from emberforge_lite.providers.base import (
     AmbiguousOutcome,
     AuthenticationFailed,
     Candidate,
@@ -38,12 +38,12 @@ from providers.base import (
     Stage,
     SubmissionReceipt,
 )
-from providers.elevenlabs import CREDITS_PER_SECOND as ELEVENLABS_CREDITS_PER_SECOND
-from providers.elevenlabs import DEFAULT_ACCOUNT_RIGHTS as ELEVENLABS_RIGHTS
-from providers.openai_images import DEFAULT_ACCOUNT_RIGHTS as OPENAI_RIGHTS
-from providers.openai_images import SMALLEST_SQUARE, USD_PER_IMAGE
-from providers.spritelab import CREDITS_PER_ANIMATION as SPRITELAB_CREDITS_PER_ANIMATION
-from providers.spritelab import CREDITS_PER_SOURCE
+from emberforge_lite.providers.elevenlabs import CREDITS_PER_SECOND as ELEVENLABS_CREDITS_PER_SECOND
+from emberforge_lite.providers.elevenlabs import DEFAULT_ACCOUNT_RIGHTS as ELEVENLABS_RIGHTS
+from emberforge_lite.providers.openai_images import DEFAULT_ACCOUNT_RIGHTS as OPENAI_RIGHTS
+from emberforge_lite.providers.openai_images import SMALLEST_SQUARE, USD_PER_IMAGE
+from emberforge_lite.providers.spritelab import CREDITS_PER_ANIMATION as SPRITELAB_CREDITS_PER_ANIMATION
+from emberforge_lite.providers.spritelab import CREDITS_PER_SOURCE
 
 UTC = timezone.utc
 

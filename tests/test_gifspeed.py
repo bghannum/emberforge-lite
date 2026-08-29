@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import gifspeed
-from gifspeed import gce_delays, set_fps, slow_gif
+from emberforge_lite import gifspeed
+from emberforge_lite.gifspeed import gce_delays, set_fps, slow_gif
 
 
 class TestGceDelays:

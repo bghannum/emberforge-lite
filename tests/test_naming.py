@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from naming import asset_stem, sanitize_filename, sanitize_slug, unique_path
+from emberforge_lite.naming import asset_stem, sanitize_filename, sanitize_slug, unique_path
 
 
 class TestSanitizeSlug:

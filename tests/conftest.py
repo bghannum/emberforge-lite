@@ -8,17 +8,11 @@ generators, which are the same bytes the offline path produces in practice.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
 # Media generators reused from the fakes so fixtures match real offline output.
-from providers.fakes import (  # noqa: E402
+# The package is installed (editable) via `pip install -e .[dev]`.
+from emberforge_lite.providers.fakes import (
     FAKE_PREVIEW_GIF,
     _png,
     _source_sheet,

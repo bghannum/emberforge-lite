@@ -21,7 +21,7 @@ import zlib
 from fractions import Fraction
 from typing import Any
 
-from media import PNG_SIGNATURE, inspect_png
+from emberforge_lite.media import PNG_SIGNATURE, inspect_png
 
 DEFAULT_CANVAS = 256
 DEFAULT_MARGIN = 16

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import struct
 
-from media import MP3_SIGNATURES, WAV_SIGNATURE, Rejected, _MP3_BITRATES, _MP3_RATES
+from emberforge_lite.media import _MP3_BITRATES, _MP3_RATES, MP3_SIGNATURES, WAV_SIGNATURE, Rejected
 
 
 class TrimError(ValueError):

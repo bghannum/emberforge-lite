@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-import build
-import generate
-from pngtools import fit_png
-from providers.fakes import _png
+from emberforge_lite import build, generate
+from emberforge_lite.pngtools import fit_png
+from emberforge_lite.providers.fakes import _png
 
 
 @pytest.fixture

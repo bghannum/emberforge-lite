@@ -85,7 +85,7 @@ rejected, and invalid or oversized uploads leave no committed partial state. **M
 
 ## 5. Milestone 2 — Packaging and runtime-data separation
 
-**Milestone status:** Pending
+**Milestone status:** Complete
 
 Create an installable `src/emberforge_lite` package with a console entry point while retaining the
 current commands as temporary compatibility wrappers.
@@ -102,19 +102,25 @@ emberforge-lite demo [--port 8000] [--keep] [--data-dir PATH]
 
 | Status | Task |
 |---|---|
-| Pending | Add `pyproject.toml`, wheel and source-distribution metadata, the console entry point, package-data declarations, and Python version constraints. |
-| Pending | Move application modules into `src/emberforge_lite` with clear CLI, generation, storage, media, provider, and web boundaries. |
-| Pending | Implement data-directory precedence: `--data-dir`, then `EMBERFORGE_DATA_DIR`, then the platform default. |
-| Pending | Use `~/Library/Application Support/emberforge-lite` on macOS and `$XDG_DATA_HOME/emberforge-lite` or `~/.local/share/emberforge-lite` on Linux. |
-| Pending | Store runtime content beneath `<data-dir>/actors`, `<data-dir>/site`, and `<data-dir>/tmp`. |
-| Pending | Read credentials from the process environment unless `--env-file` is supplied explicitly; never search the repository or working directory for `.env`. |
-| Pending | Implement `migrate` as a validating copy: exclude credentials and generated HTML, refuse a non-empty destination, and leave the source unchanged. |
-| Pending | Implement `demo` using bundled synthetic fixtures in a temporary data directory, deleting it on normal shutdown unless `--keep` or an explicit data directory is supplied. |
-| Pending | Convert root `server.py`, `build.py`, and `link.py` into deprecated thin launchers retained through `v0.1.x` and scheduled for removal in `v0.2.0`. |
+| Complete | Add `pyproject.toml`, wheel and source-distribution metadata, the console entry point, package-data declarations, and Python version constraints. (`[project.scripts] emberforge-lite = emberforge_lite.cli:main`; src layout; `requires-python = ">=3.9"`.) |
+| Complete | Move application modules into `src/emberforge_lite` with clear CLI, generation, storage, media, provider, and web boundaries. (`cli`, `config`, `generate`, `media`/`pngtools`/`audiotools`/`gifspeed`, `providers/`, `build`/`server`.) |
+| Complete | Implement data-directory precedence: `--data-dir`, then `EMBERFORGE_DATA_DIR`, then the platform default. (`config.resolve_data_dir`, `tests/test_config.py`.) |
+| Complete | Use `~/Library/Application Support/emberforge-lite` on macOS and `$XDG_DATA_HOME/emberforge-lite` or `~/.local/share/emberforge-lite` on Linux. (`config.platform_default_data_dir`.) |
+| Complete | Store runtime content beneath `<data-dir>/actors`, `<data-dir>/site`, and `<data-dir>/tmp`. (`config.Paths`; served pages use root-relative `/actors/...` URLs so the `site`/`actors` split works — `build.rel`.) |
+| Complete | Read credentials from the process environment unless `--env-file` is supplied explicitly; never search the repository or working directory for `.env`. (`generate.select_providers(env_file=...)`; `credentials.load_env_file` requires an explicit path.) |
+| Complete | Implement `migrate` as a validating copy: exclude credentials and generated HTML, refuse a non-empty destination, and leave the source unchanged. (`migrate.py`, `tests/test_migrate.py`.) |
+| Complete | Implement `demo` using bundled synthetic fixtures in a temporary data directory, deleting it on normal shutdown unless `--keep` or an explicit data directory is supplied. (`demo.py`; fixtures are synthesized deterministically — a committed synthetic actor replaces them in Milestone 5.) |
+| Complete | Convert root `server.py`, `build.py`, and `link.py` into deprecated thin launchers retained through `v0.1.x` and scheduled for removal in `v0.2.0`. (Each prints a deprecation notice and forwards to the CLI.) |
 
 **Acceptance gate:** A clean environment can install the built wheel with `pipx`, run the demo
 without network or credentials, and migrate a copy of the current actor directory without changing
-the source.
+the source. **Met** — verified by installing the built wheel into a fresh virtualenv (no third-party
+runtime dependencies), running `emberforge-lite demo` offline, and a non-destructive `migrate`.
+
+> **Build note:** because a deprecated root `build.py` launcher exists, `python -m build` in the repo
+> root imports that shim instead of the PyPA build tool. Build the distributions with the
+> `pyproject-build` console script (which does not put the working directory on `sys.path`); this is
+> what the Milestone 6 release workflow uses.
 
 ## 6. Milestone 3 — Reliable storage, generation, and provenance
 

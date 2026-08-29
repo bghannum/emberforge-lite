@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-import media
-from audiotools import TrimError, trim
+from emberforge_lite import media
+from emberforge_lite.audiotools import TrimError, trim
 
 
 class TestTrimValidation:
