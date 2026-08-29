@@ -179,24 +179,26 @@ the new complete state. Provenance survives rename, export, restart, and rebuild
 
 ## 7. Milestone 4 — Web-layer refactoring
 
-**Milestone status:** Pending
+**Milestone status:** Complete
 
 Retain static page generation while separating presentation assets and reducing the responsibilities
 of the current builder.
 
 | Status | Task |
 |---|---|
-| Pending | Move CSS and JavaScript into packaged static files. |
-| Pending | Move gallery and actor markup into focused rendering modules or templates. |
-| Pending | Remove inline event handlers and pass actor and asset identifiers through escaped data attributes. |
-| Pending | Keep full rebuild-from-disk behavior as the canonical synchronization mechanism. |
-| Pending | Write generated pages only beneath `<data-dir>/site`. |
-| Pending | Preserve upload, link, trim, rename, delete, export, speed, media-sync, fake/live status, and estimate-confirm workflows. |
-| Pending | Add visible error and recovery states instead of relying exclusively on browser dialogs. |
+| Complete | Move CSS and JavaScript into packaged static files. (`static/app.css`, `static/app.js`, served at `/static/`, bundled in the wheel via `package-data`.) |
+| Complete | Move gallery and actor markup into focused rendering modules or templates. (`render_actor`, `render_index_body`, `render_topbar`, `page_shell` in `build.py`; the 500-line inline CSS/JS constants are gone.) |
+| Complete | Remove inline event handlers and pass actor and asset identifiers through escaped data attributes. (Every `on*=` replaced by `data-action` + `data-*`; three delegated listeners in `app.js`.) |
+| Complete | Keep full rebuild-from-disk behavior as the canonical synchronization mechanism. (`build.build()` still scans the tree.) |
+| Complete | Write generated pages only beneath `<data-dir>/site`. (`build.configure_paths` + `ROOT` = `paths.site`.) |
+| Complete | Preserve upload, link, trim, rename, delete, export, speed, media-sync, fake/live status, and estimate-confirm workflows. (`tests/test_server_app.py` + live browser check.) |
+| Complete | Add visible error and recovery states instead of relying exclusively on browser dialogs. (`toast()` + a promise-based `modal()` replace every `alert`/`confirm`/`prompt`.) |
 
 **Acceptance gate:** Screenshot comparison and HTTP integration tests show that the current workflow
 remains usable, while generated pages pass the Content Security Policy without inline-script
-exceptions.
+exceptions. **Met** — `tests/test_web.py` asserts no inline handlers/scripts, a strict CSP with no
+`unsafe-inline`, and served static files; a live Chrome load of the demo rendered correctly, ran the
+JS (provider badge populated, custom modal opened), and logged zero console/CSP errors.
 
 ## 8. Milestone 5 — Public showcase and Codex skill
 

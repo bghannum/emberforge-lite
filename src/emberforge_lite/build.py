@@ -10,14 +10,12 @@ Convention, per actor folder under actors/<slug>/:
     links.json          {"animation_filename": ["sound_filename", ...]}, optional
     generations.jsonl   provider-call ledger written by generate.py, optional
 
-All markup, CSS and JS is templated here (STYLE, SCRIPT, render_actor). The
-server imports `build()` and calls it after every change.
+Markup is templated here (render_actor, page_shell); CSS and JS are packaged
+static files under `static/` served at /static/, so generated pages carry no
+inline styles, scripts, or event handlers and pass a strict CSP. The server
+imports `build()` and calls it after every change.
 
-Run after dropping files in:
-    python3 build.py
-
-Then open gallery.html directly, or run `python3 server.py` for browser
-uploads/linking (see README.md).
+Use the installed CLI: `emberforge-lite build` and `emberforge-lite serve`.
 """
 
 from __future__ import annotations
@@ -122,7 +120,8 @@ def trim_button_html(esc_slug: str, sound: str, duration: int | None, link_to: s
     esc_sound = html.escape(sound, quote=True)
     return (
         f'<button type="button" class="icon-btn" title="Trim (writes a new file)" '
-        f'onclick="trimSound(\'{esc_slug}\',\'{esc_sound}\',{duration or 0},\'{html.escape(link_to, quote=True)}\')">'
+        f'data-action="trim" data-slug="{esc_slug}" data-sound="{esc_sound}" '
+        f'data-duration="{duration or 0}" data-link-to="{html.escape(link_to, quote=True)}">'
         f"{SCISSORS_ICON}</button>"
     )
 SPARK_ICON = (
@@ -142,500 +141,7 @@ SOUND_PROMPT_PLACEHOLDER = (
     "A short arcane whoosh with a shimmering tail. No metal, no scraping, no music, no voice."
 )
 
-STYLE = """
-  :root {
-    --bg: oklch(15% 0.012 265);
-    --surface: oklch(20% 0.014 265);
-    --surface-raised: oklch(24.5% 0.017 265);
-    --surface-sunken: oklch(12.5% 0.012 265);
-    --border: oklch(31% 0.016 265);
-    --border-soft: oklch(26% 0.014 265);
-    --text: oklch(93% 0.008 265);
-    --text-secondary: oklch(68% 0.018 265);
-    --text-tertiary: oklch(50% 0.018 265);
-    --cyan: oklch(76% 0.13 220);
-    --cyan-ink: oklch(18% 0.03 220);
-    --cyan-dim: oklch(30% 0.05 220);
-    --amber: oklch(78% 0.15 70);
-    --amber-ink: oklch(18% 0.03 70);
-    --amber-dim: oklch(32% 0.06 70);
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    background: var(--bg); color: var(--text); }
-  a { color: var(--cyan); text-decoration: none; }
-  a:hover { color: oklch(85% 0.11 220); }
-  button { cursor: pointer; font-family: inherit; }
-  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .pixel-art { image-rendering: pixelated; }
-  .checker { background: repeating-conic-gradient(var(--surface-sunken) 0% 25%, var(--surface) 0% 50%) 0 0 / 16px 16px; }
 
-  .topbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 24px;
-    padding: 14px 28px; border-bottom: 1px solid var(--border-soft); background: var(--surface); flex-wrap: wrap; }
-  .brand { display: flex; align-items: center; gap: 9px; font-size: 16px; font-weight: 700; flex-shrink: 0; }
-  .brand svg { color: var(--amber); }
-  .brand .dim { color: var(--text-tertiary); font-weight: 500; }
-  .divider { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
-  .nav-pills { display: flex; align-items: center; gap: 4px; flex: 1; flex-wrap: wrap; }
-  .pill { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px;
-    font-size: 13px; font-weight: 600; color: var(--text-secondary); border: 1px solid transparent; }
-  .pill:hover { color: var(--text); }
-  .pill.active { background: var(--surface-raised); border-color: var(--border); color: var(--text); }
-  .pill-count { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--text-tertiary); }
-
-  #new-actor { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-  #new-actor input[type=text] { width: 150px; padding: 7px 10px; border-radius: 7px;
-    background: var(--surface-sunken); border: 1px solid var(--border); color: var(--text); font-size: 12.5px; }
-  #new-actor input[type=file] { font-size: 11.5px; color: var(--text-secondary); max-width: 130px; }
-  .btn-primary { display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 7px;
-    background: var(--cyan); border: 1px solid var(--cyan); color: var(--cyan-ink); font-size: 12.5px; font-weight: 700; }
-  .btn-ghost { display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 7px;
-    background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-size: 12.5px; font-weight: 600; }
-  .btn-ghost:hover { color: var(--text); border-color: var(--cyan-dim); }
-
-  main { padding: 28px 28px 60px; max-width: 1400px; margin: 0 auto; }
-  .actor { padding-top: 20px; }
-  .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;
-    flex-wrap: wrap; margin-bottom: 26px; }
-  .actor h2 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.2px; }
-  .section-meta { margin-top: 5px; font-size: 12.5px; color: var(--text-tertiary);
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .section-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-
-  .upload-widget { position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 18px;
-    border-radius: 12px; border: 1.5px dashed var(--border); background: var(--surface); min-width: 360px; }
-  .upload-widget:hover { border-color: var(--cyan-dim); }
-  .upload-icon { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px;
-    border-radius: 8px; background: var(--surface-raised); color: var(--amber); flex-shrink: 0; }
-  .upload-title { font-size: 12.5px; font-weight: 700; }
-  .upload-hint { font-size: 11px; color: var(--text-tertiary); margin-top: 1px; }
-  .upload-widget input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-
-  .group { margin-bottom: 30px; }
-  .group-label { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px;
-    font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-secondary); }
-  .group-label-lg { font-size: 14px; }
-  .group-label .count { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11.5px; font-weight: 500; color: var(--text-tertiary); text-transform: none; letter-spacing: 0; }
-  .group-label .group-hint { font-size: 11.5px; font-weight: 500; text-transform: none;
-    letter-spacing: 0; color: var(--text-tertiary); }
-  .group-label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
-  .empty { font-size: 12.5px; color: var(--text-tertiary); }
-
-  .asset-actions { display: flex; gap: 4px; flex-shrink: 0; }
-  .icon-btn { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px;
-    border-radius: 6px; background: transparent; border: 1px solid var(--border); color: var(--text-tertiary); }
-  .icon-btn:hover { color: var(--text); border-color: var(--cyan-dim); }
-  .icon-btn-danger:hover { color: oklch(72% 0.15 20); border-color: oklch(45% 0.1 20); }
-
-  .sprite-grid { display: flex; flex-wrap: wrap; gap: 14px; }
-  .sprite-card { width: 128px; }
-  .sprite-thumb { width: 128px; height: 128px; border-radius: 10px; border: 1px solid var(--border-soft);
-    display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .sprite-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
-  .asset-name { margin-top: 6px; font-size: 11px; color: var(--text-tertiary);
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sprite-card .asset-actions { justify-content: center; margin-top: 4px; }
-  .prov-badge { display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.03em;
-    text-transform: uppercase; padding: 1px 5px; border-radius: 999px; vertical-align: middle;
-    font-family: ui-sans-serif, system-ui, sans-serif; white-space: nowrap; }
-  .prov-generated { background: rgba(56, 189, 248, 0.15); color: var(--cyan, #38bdf8); }
-  .prov-uploaded { background: rgba(148, 163, 184, 0.18); color: var(--text-secondary); }
-  .prov-unknown { background: rgba(251, 191, 36, 0.18); color: #f59e0b; }
-
-  .anim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-  .anim-card { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 14px;
-    overflow: hidden; display: flex; flex-direction: column; }
-  .anim-thumb { position: relative; height: 200px; display: flex; align-items: center; justify-content: center;
-    color: var(--text-tertiary); }
-  .anim-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
-  .badge { position: absolute; display: flex; align-items: center; justify-content: center;
-    background: oklch(20% 0.014 265 / 0.85); color: var(--text-secondary); border-radius: 6px; }
-  .badge-gif { top: 10px; left: 10px; padding: 3px 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; }
-  .badge-loop { top: 10px; right: 10px; width: 22px; height: 22px; color: var(--text-tertiary); }
-  .anim-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
-  .asset-name-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .anim-body .asset-name { text-align: left; font-size: 12.5px; color: var(--text-secondary); margin: 0; }
-  .speed-row { display: flex; align-items: center; gap: 8px; }
-  .speed-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;
-    color: var(--text-tertiary); flex-shrink: 0; }
-  .speed-row select { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 7px;
-    background: var(--surface-sunken); border: 1px solid var(--border); color: var(--text-secondary); font-size: 11.5px; }
-
-  .sound-pills { display: flex; flex-direction: column; gap: 6px; }
-  .sound-row { display: flex; align-items: center; gap: 6px; }
-  .sound-row .sound-pill { flex: 1; min-width: 0; }
-  .sound-dur { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; font-weight: 500;
-    color: var(--text-tertiary); margin-left: 6px; flex-shrink: 0; }
-  .sound-pill { display: flex; align-items: center; gap: 9px; padding: 9px 12px; border-radius: 9px;
-    background: var(--amber-dim); border: 1px solid oklch(45% 0.09 70); color: var(--amber);
-    font-size: 12.5px; font-weight: 700; text-align: left; }
-  .sound-pill audio { display: none; }
-  .play-dot { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px;
-    border-radius: 50%; background: var(--amber); color: var(--amber-ink); flex-shrink: 0; }
-  .sound-pill-name { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .no-sound { padding: 9px 12px; border-radius: 9px; background: var(--surface-sunken);
-    border: 1px dashed var(--border); font-size: 11.5px; color: var(--text-tertiary); font-style: italic; }
-
-  .link-row { display: flex; gap: 6px; }
-  .link-row select { flex: 1; min-width: 0; padding: 7px 8px; border-radius: 7px;
-    background: var(--surface-sunken); border: 1px solid var(--border); color: var(--text-secondary); font-size: 11.5px; }
-  .link-btn { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 0 12px;
-    height: 30px; border-radius: 7px; background: var(--cyan); border: 1px solid var(--cyan);
-    color: var(--cyan-ink); font-size: 11.5px; font-weight: 700; flex-shrink: 0; }
-
-  .unlinked-grid { display: flex; flex-wrap: wrap; gap: 14px; }
-  .unlinked-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 11px;
-    background: var(--surface); border: 1px solid var(--border-soft); min-width: 240px; }
-  .unlinked-icon { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px;
-    border-radius: 8px; background: var(--surface-raised); color: var(--text-tertiary); flex-shrink: 0; }
-  .unlinked-info { flex: 1; min-width: 0; }
-  .unlinked-info audio { width: 100%; height: 28px; margin-top: 4px; }
-
-  .sheet-link { font-size: 10.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    color: var(--text-tertiary); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; margin-right: 4px; }
-  .sheet-link:hover { color: var(--cyan); border-color: var(--cyan-dim); }
-
-  .gen-panel { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 14px;
-    padding: 0 18px; margin-bottom: 30px; }
-  .gen-panel summary { display: flex; align-items: center; gap: 12px; padding: 14px 0; cursor: pointer;
-    list-style: none; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; }
-  .gen-panel summary::-webkit-details-marker { display: none; }
-  .gen-title { display: flex; align-items: center; gap: 7px; color: var(--amber); }
-  .gen-badge { font-size: 11px; font-weight: 600; text-transform: none; letter-spacing: 0; padding: 3px 9px;
-    border-radius: 6px; background: var(--surface-sunken); color: var(--text-tertiary); border: 1px solid var(--border-soft); }
-  .gen-badge.live { color: var(--amber); border-color: oklch(45% 0.09 70); background: var(--amber-dim); }
-  .gen-tabs { display: flex; gap: 4px; padding-bottom: 14px; }
-  .gen-tab { padding: 6px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; background: transparent;
-    border: 1px solid transparent; color: var(--text-secondary); }
-  .gen-tab.active { background: var(--surface-raised); border-color: var(--border); color: var(--text); }
-  .gen-tab:disabled { opacity: 0.4; cursor: not-allowed; }
-  .gen-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; padding-bottom: 14px; }
-  .gen-form[hidden] { display: none; }
-  .gen-form label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-tertiary); }
-  .gen-form label.wide { grid-column: 1 / -1; }
-  .gen-form input, .gen-form select, .gen-form textarea { font: inherit; font-size: 12.5px; text-transform: none;
-    letter-spacing: 0; padding: 7px 9px; border-radius: 7px; background: var(--surface-sunken);
-    border: 1px solid var(--border); color: var(--text); }
-  .gen-form textarea { resize: vertical; font-family: inherit; }
-  .gen-note { grid-column: 1 / -1; font-size: 11.5px; color: var(--text-tertiary); }
-  .gen-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 14px; }
-  .gen-cost { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--amber); }
-  .gen-status { font-size: 12px; color: var(--text-secondary); padding-bottom: 14px; min-height: 1em; }
-  .gen-status.error { color: oklch(72% 0.15 20); }
-  button:disabled { opacity: 0.5; cursor: wait; }
-
-  .actor-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-  .actor-card { display: block; background: var(--surface); border: 1px solid var(--border-soft);
-    border-radius: 12px; padding: 18px 20px; color: var(--text); }
-  .actor-card:hover { border-color: var(--cyan-dim); color: var(--text); }
-  .actor-card h2 { margin: 0; font-size: 17px; font-weight: 700; }
-"""
-
-SCRIPT = """
-// The server injects <meta name="csrf-token"> into every page it serves and
-// requires the token on state-changing requests. Wrap fetch once so every
-// mutating call carries it; the browser adds the same-origin Origin header
-// on its own. When the page is opened directly from disk (no server, no meta)
-// the token is empty and the wrapper is a no-op.
-const CSRF_TOKEN = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
-(function () {
-  const nativeFetch = window.fetch.bind(window);
-  window.fetch = function (input, init) {
-    init = init || {};
-    const method = (init.method || 'GET').toUpperCase();
-    if (method !== 'GET' && method !== 'HEAD' && CSRF_TOKEN) {
-      const headers = new Headers(init.headers || {});
-      if (!headers.has('X-CSRF-Token')) headers.set('X-CSRF-Token', CSRF_TOKEN);
-      init.headers = headers;
-    }
-    return nativeFetch(input, init);
-  };
-})();
-
-function setSpeed(imgId, slug, filename, factor) {
-  const img = document.getElementById(imgId);
-  const base = img.dataset.baseSrc;
-  const url = factor === '1'
-    ? base
-    : `/speed/${encodeURIComponent(slug)}/${encodeURIComponent(filename)}?factor=${encodeURIComponent(factor)}`;
-  img.src = '';
-  img.onload = null;
-  img.src = url;
-}
-
-function playWithSound(imgId, audioId) {
-  const img = document.getElementById(imgId);
-  const audio = document.getElementById(audioId);
-  const src = img.src;
-  img.src = '';
-  audio.currentTime = 0;
-  img.onload = () => audio.play();
-  img.src = src;
-}
-
-async function uploadFiles(slug, fileList) {
-  const files = Array.from(fileList);
-  if (!files.length) return;
-  for (const file of files) {
-    const res = await fetch(`/upload/${encodeURIComponent(slug)}/${encodeURIComponent(file.name)}`, {
-      method: 'PUT',
-      body: file,
-    });
-    if (!res.ok) {
-      alert(`Upload failed for ${file.name}: ${await res.text()}`);
-      return;
-    }
-  }
-  location.href = `actor-${encodeURIComponent(slug)}.html`;
-}
-
-function uploadNewActor() {
-  const slug = document.getElementById('new-actor-slug').value.trim();
-  const files = document.getElementById('new-actor-files').files;
-  if (!slug) {
-    alert('Enter an actor slug first.');
-    return;
-  }
-  uploadFiles(slug, files);
-}
-
-async function linkSound(slug, animation, selectId) {
-  const select = document.getElementById(selectId);
-  const sound = select.value;
-  if (!sound) return;
-  const res = await fetch('/link', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({slug, animation, sound}),
-  });
-  if (!res.ok) {
-    alert(`Link failed: ${await res.text()}`);
-    return;
-  }
-  location.reload();
-}
-
-async function deleteAsset(slug, filename) {
-  if (!confirm(`Delete ${filename}? This can't be undone.`)) return;
-  const res = await fetch(`/asset/${encodeURIComponent(slug)}/${encodeURIComponent(filename)}`, {
-    method: 'DELETE',
-  });
-  if (!res.ok) {
-    alert(`Delete failed: ${await res.text()}`);
-    return;
-  }
-  location.reload();
-}
-
-async function renameAsset(slug, filename) {
-  const newName = prompt(`Rename ${filename} to:`, filename);
-  if (!newName || newName === filename) return;
-  const res = await fetch('/rename', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({slug, filename, new_name: newName}),
-  });
-  if (!res.ok) {
-    alert(`Rename failed: ${await res.text()}`);
-    return;
-  }
-  location.reload();
-}
-
-async function unlinkSound(slug, animation, sound) {
-  const res = await fetch('/unlink', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({slug, animation, sound}),
-  });
-  if (!res.ok) {
-    alert(`Unlink failed: ${await res.text()}`);
-    return;
-  }
-  location.reload();
-}
-
-async function trimSound(slug, sound, durationMs, linkTo) {
-  const hint = durationMs ? `${sound} is ${durationMs} ms.` : sound;
-  const answer = prompt(`${hint}\nKeep which part? Enter start-end in ms (a new file is written; the original is kept):`,
-                        `0-${durationMs || 1000}`);
-  if (!answer) return;
-  const m = answer.trim().match(/^(\\d+)\\s*-\\s*(\\d+)$/);
-  if (!m) { alert('Enter a range like 120-700'); return; }
-  const res = await fetch('/trim', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({slug, sound, start_ms: +m[1], end_ms: +m[2], link_to: linkTo || null}),
-  });
-  if (!res.ok) {
-    let msg = await res.text();
-    try { msg = JSON.parse(msg).error; } catch (e) {}
-    alert(`Trim failed: ${msg}`);
-    return;
-  }
-  location.reload();
-}
-
-// ---- Generation panel ---------------------------------------------------
-
-const GEN = { kind: 'animation', estimate: null, slug: null };
-
-function $(id) { return document.getElementById(id); }
-
-function genTab(kind) {
-  GEN.kind = kind;
-  document.querySelectorAll('.gen-tab').forEach(b => b.classList.toggle('active', b.dataset.kind === kind));
-  ['animation', 'sound', 'source'].forEach(k => { $(`gen-form-${k}`).hidden = (k !== kind); });
-  genDirty();
-}
-
-function genDirty() {
-  GEN.estimate = null;
-  $('gen-confirm').hidden = true;
-  $('gen-cost').textContent = '';
-}
-
-function genParams() {
-  const form = $(`gen-form-${GEN.kind}`);
-  const params = { slug: GEN.slug, kind: GEN.kind };
-  new FormData(form).forEach((v, k) => { params[k] = v; });
-  return params;
-}
-
-function genStatus(text, isError) {
-  const el = $('gen-status');
-  el.textContent = text;
-  el.classList.toggle('error', !!isError);
-}
-
-async function genJson(url, body, method) {
-  const res = await fetch(url, {
-    method: method || 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  let data = {};
-  try { data = await res.json(); } catch (e) { data = { error: `HTTP ${res.status}` }; }
-  if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status, data });
-  return data;
-}
-
-async function genEstimate() {
-  genDirty();
-  genStatus('');
-  const btn = $('gen-estimate');
-  btn.disabled = true;
-  try {
-    const est = await genJson('/estimate', genParams());
-    GEN.estimate = est;
-    const parts = [est.display];
-    if (est.submitted_size) parts.push(`submits ${est.submitted_size[0]}×${est.submitted_size[1]}`);
-    parts.push(`writes ${est.output_name}`);
-    $('gen-cost').textContent = parts.join(' · ');
-    const confirm = $('gen-confirm');
-    confirm.textContent = `Confirm & generate (${est.display.split(' · ')[0]})`;
-    confirm.hidden = false;
-    if (!est.live) genStatus('Offline: a fake provider will answer. Start the server with --allow-spend to use the real API.');
-  } catch (err) {
-    genStatus(err.message, true);
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function genConfirm() {
-  if (!GEN.estimate) return;
-  const confirm = $('gen-confirm');
-  confirm.disabled = true;
-  const params = genParams();
-  params.confirm_amount = GEN.estimate.amount;
-  const kind = GEN.kind;
-  try {
-    if (kind === 'animation') {
-      genStatus('Submitting…');
-      const job = await genJson('/generate/animation', params);
-      await genPoll(job.job_id, job.output_name);
-    } else {
-      genStatus('Generating…');
-      const result = await genJson(`/generate/${kind}`, params);
-      genStatus(`Done: ${result.filename}` + (result.reported_charge ? ` · charged ${result.reported_charge}` : ''));
-      setTimeout(() => location.reload(), 600);
-    }
-  } catch (err) {
-    genStatus(err.data && err.data.ambiguous
-      ? `Ambiguous: ${err.message}`
-      : err.message, true);
-    confirm.disabled = false;
-  }
-}
-
-async function genPoll(jobId, outputName) {
-  const started = Date.now();
-  for (;;) {
-    let job;
-    try {
-      job = await genJson(`/job/${encodeURIComponent(GEN.slug)}/${encodeURIComponent(jobId)}`, undefined, 'GET');
-    } catch (err) {
-      genStatus(err.message, true);
-      return;
-    }
-    const elapsed = Math.round((Date.now() - started) / 1000);
-    if (job.state === 'running' || job.state === 'queued') {
-      genStatus(`Animating ${outputName || ''}… ${elapsed}s (SpriteLab jobs usually take 30–90 s; keep this page open)`);
-      await new Promise(r => setTimeout(r, 3000));
-      continue;
-    }
-    if (job.state === 'succeeded') {
-      genStatus(`Done: ${(job.outputs && job.outputs.gif) || 'sheet only'}`);
-      setTimeout(() => location.reload(), 600);
-    } else {
-      genStatus(`${job.state}: ${job.error || 'no detail'}`, true);
-    }
-    return;
-  }
-}
-
-async function genInit() {
-  const panel = document.querySelector('.gen-panel');
-  if (!panel) return;
-  GEN.slug = panel.dataset.slug;
-  try {
-    const info = await genJson('/providers', undefined, 'GET');
-    const badge = $('gen-badge');
-    const p = info.providers;
-    if (info.allow_spend) {
-      badge.textContent = 'LIVE — spending enabled';
-      badge.classList.add('live');
-    } else {
-      badge.textContent = 'offline — fake providers';
-    }
-    const usable = {
-      animation: !info.allow_spend || p.spritelab.live,
-      sound: !info.allow_spend || p.elevenlabs.live,
-      source: !info.allow_spend || p.spritelab.live || p.openai.live,
-    };
-    document.querySelectorAll('.gen-tab').forEach(b => {
-      b.disabled = !usable[b.dataset.kind];
-      if (b.disabled) b.title = 'no API key configured for this provider';
-    });
-    const jobs = await genJson(`/jobs/${encodeURIComponent(GEN.slug)}`, undefined, 'GET');
-    if (jobs.open && jobs.open.length) {
-      const job = jobs.open[jobs.open.length - 1];
-      panel.open = true;
-      genStatus(`Resuming animation job for "${job.action}"…`);
-      genPoll(job.job_id, job.action);
-    }
-  } catch (err) {
-    $('gen-badge').textContent = 'server not running';
-  }
-}
-
-genInit();
-"""
 
 
 def list_media(folder: Path, exts: set[str]) -> list[Path]:
@@ -663,9 +169,9 @@ def asset_actions_html(esc_slug: str, filename: str, extra: str = "") -> str:
     return (
         f'<div class="asset-actions">{extra}'
         f'<button type="button" class="icon-btn" title="Rename" '
-        f'onclick="renameAsset(\'{esc_slug}\',\'{esc_name}\')">{PENCIL_ICON}</button>'
+        f'data-action="rename" data-slug="{esc_slug}" data-filename="{esc_name}">{PENCIL_ICON}</button>'
         f'<button type="button" class="icon-btn icon-btn-danger" title="Delete" '
-        f'onclick="deleteAsset(\'{esc_slug}\',\'{esc_name}\')">{TRASH_ICON}</button>'
+        f'data-action="delete" data-slug="{esc_slug}" data-filename="{esc_name}">{TRASH_ICON}</button>'
         f"</div>"
     )
 
@@ -748,7 +254,7 @@ def render_actor(actor_dir: Path) -> str:
             buttons += (
                 f'<div class="sound-row">'
                 f'<button type="button" class="sound-pill" '
-                f'onclick="playWithSound(\'{img_id}\',\'{audio_id}\')">'
+                f'data-action="play" data-img="{img_id}" data-audio="{audio_id}">'
                 f'<audio id="{audio_id}" src="{rel(sound_path)}"></audio>'
                 f'<span class="play-dot">{PLAY_ICON}</span>'
                 f'<span class="sound-pill-name">{html.escape(s)}</span>{dur_html}'
@@ -756,7 +262,8 @@ def render_actor(actor_dir: Path) -> str:
                 f'<div class="asset-actions">'
                 f"{trim_button_html(esc_slug, s, duration, p.name)}"
                 f'<button type="button" class="icon-btn icon-btn-danger" title="Unlink from this animation" '
-                f'onclick="unlinkSound(\'{esc_slug}\',\'{html.escape(p.name, quote=True)}\',\'{html.escape(s, quote=True)}\')">'
+                f'data-action="unlink" data-slug="{esc_slug}" '
+                f'data-animation="{html.escape(p.name, quote=True)}" data-sound="{html.escape(s, quote=True)}">'
                 f"{UNLINK_ICON}</button>"
                 f"</div></div>"
             )
@@ -764,7 +271,8 @@ def render_actor(actor_dir: Path) -> str:
             f'<div class="link-row">'
             f'<select id="link-select-{esc_slug}-{i}">{unlinked_options}</select>'
             f'<button type="button" class="link-btn" '
-            f'onclick="linkSound(\'{esc_slug}\',\'{html.escape(p.name, quote=True)}\',\'link-select-{esc_slug}-{i}\')">'
+            f'data-action="link" data-slug="{esc_slug}" '
+            f'data-animation="{html.escape(p.name, quote=True)}" data-select="link-select-{esc_slug}-{i}">'
             f"{LINK_ICON} Link</button>"
             f"</div>"
             if unlinked_options
@@ -773,7 +281,8 @@ def render_actor(actor_dir: Path) -> str:
         speed_row = (
             f'<div class="speed-row">'
             f'<span class="speed-label">Speed</span>'
-            f'<select onchange="setSpeed(\'{img_id}\',\'{esc_slug}\',\'{html.escape(p.name, quote=True)}\',this.value)">'
+            f'<select data-action="speed" data-img="{img_id}" data-slug="{esc_slug}" '
+            f'data-filename="{html.escape(p.name, quote=True)}">'
             f'<option value="1">1&times; (original)</option>'
             f'<option value="0.75">0.75&times;</option>'
             f'<option value="0.5">0.5&times;</option>'
@@ -819,12 +328,12 @@ def render_actor(actor_dir: Path) -> str:
           <span class="gen-badge" id="gen-badge">checking providers&hellip;</span>
         </summary>
         <div class="gen-tabs">
-          <button type="button" class="gen-tab active" data-kind="animation" onclick="genTab('animation')">Animate a sprite</button>
-          <button type="button" class="gen-tab" data-kind="sound" onclick="genTab('sound')">Sound</button>
-          <button type="button" class="gen-tab" data-kind="source" onclick="genTab('source')">Source sprite</button>
+          <button type="button" class="gen-tab active" data-kind="animation" data-action="gen-tab">Animate a sprite</button>
+          <button type="button" class="gen-tab" data-kind="sound" data-action="gen-tab">Sound</button>
+          <button type="button" class="gen-tab" data-kind="source" data-action="gen-tab">Source sprite</button>
         </div>
 
-        <form class="gen-form" id="gen-form-animation" oninput="genDirty()" onsubmit="return false">
+        <form class="gen-form" id="gen-form-animation">
           <label>Sprite <select name="sprite">{sprite_options or '<option value="">(upload a sprite first)</option>'}</select></label>
           <label>Action name <input name="action" placeholder="lunge_attack"></label>
           <label class="wide">Prompt <textarea name="prompt" rows="4">{ANIMATION_PROMPT_TEMPLATE}</textarea></label>
@@ -832,7 +341,7 @@ def render_actor(actor_dir: Path) -> str:
           <div class="gen-note">SpriteLab returns the canvas it is given: the sprite is fitted to 256&times;256 with a 16px margin first. Fixed 8 fps. 20 credits.</div>
         </form>
 
-        <form class="gen-form" id="gen-form-sound" hidden oninput="genDirty()" onsubmit="return false">
+        <form class="gen-form" id="gen-form-sound" hidden>
           <label class="wide">Prompt <textarea name="prompt" rows="3" placeholder="{SOUND_PROMPT_PLACEHOLDER}"></textarea></label>
           <label>Duration (ms) <input name="duration_ms" type="number" value="800" min="500" max="30000" step="50"></label>
           <label>Name <input name="name" placeholder="sword_impact"></label>
@@ -840,7 +349,7 @@ def render_actor(actor_dir: Path) -> str:
           <div class="gen-note">ElevenLabs, 40 credits per second of requested duration.</div>
         </form>
 
-        <form class="gen-form" id="gen-form-source" hidden oninput="genDirty()" onsubmit="return false">
+        <form class="gen-form" id="gen-form-source" hidden>
           <label>Provider <select name="provider">
             <option value="spritelab_epic">SpriteLab &middot; epic &middot; 1 credit</option>
             <option value="spritelab_mythic">SpriteLab &middot; mythic &middot; 6 credits</option>
@@ -851,9 +360,9 @@ def render_actor(actor_dir: Path) -> str:
         </form>
 
         <div class="gen-actions">
-          <button type="button" class="btn-ghost" id="gen-estimate" onclick="genEstimate()">Estimate cost</button>
+          <button type="button" class="btn-ghost" id="gen-estimate" data-action="gen-estimate">Estimate cost</button>
           <div class="gen-cost" id="gen-cost"></div>
-          <button type="button" class="btn-primary" id="gen-confirm" hidden onclick="genConfirm()">Confirm &amp; generate</button>
+          <button type="button" class="btn-primary" id="gen-confirm" hidden data-action="gen-confirm">Confirm &amp; generate</button>
         </div>
         <div class="gen-status" id="gen-status"></div>
       </details>
@@ -874,7 +383,7 @@ def render_actor(actor_dir: Path) -> str:
               <div class="upload-title">Drop files, or click to browse</div>
               <div class="upload-hint">Sorted automatically &mdash; .gif to animations, images to sprites, audio to sounds</div>
             </div>
-            <input type="file" multiple onchange="uploadFiles('{esc_slug}', this.files)">
+            <input type="file" multiple data-action="upload-files" data-slug="{esc_slug}">
           </div>
           <a class="btn-ghost" href="/export/{esc_slug}">{EXPORT_ICON} Export</a>
         </div>
@@ -919,26 +428,32 @@ def render_topbar(actor_dirs: list[Path], active_slug: str | None) -> str:
   <div id="new-actor">
     <input type="text" id="new-actor-slug" placeholder="new actor slug, e.g. gravescribe">
     <input type="file" multiple id="new-actor-files">
-    <button type="button" class="btn-primary" onclick="uploadNewActor()">Create &amp; upload</button>
+    <button type="button" class="btn-primary" data-action="new-actor">Create &amp; upload</button>
   </div>
 </div>
 """
 
 
 def page_shell(title: str, topbar_html: str, body_html: str) -> str:
+    # CSS and JS are packaged static files served at /static/. No inline <style>
+    # or <script>, and no inline event handlers anywhere in the body, so pages
+    # pass a strict Content-Security-Policy. The server injects the CSRF token as
+    # a <meta> tag into <head> at serve time.
     return f"""<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(title)}</title>
-<style>{STYLE}</style>
+<link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
 {topbar_html}
 <main>
 {body_html}
 </main>
-<script>{SCRIPT}</script>
+<div id="efl-toast" role="status" aria-live="polite" hidden></div>
+<script src="/static/app.js" defer></script>
 </body>
 </html>
 """

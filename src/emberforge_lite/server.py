@@ -54,6 +54,9 @@ from emberforge_lite.naming import sanitize_filename, sanitize_slug, unique_path
 ROOT = Path(__file__).parent
 ACTORS_DIR = ROOT / "actors"
 
+#: Packaged CSS/JS, served read-only at /static/.
+STATIC_DIR = Path(__file__).parent / "static"
+
 
 def configure_paths(paths) -> None:
     """Serve pages from ``paths.site`` and actor media from ``paths.actors``."""
@@ -92,6 +95,8 @@ CONTENT_TYPES = {
     ".wav": "audio/wav",
     ".ogg": "audio/ogg",
     ".m4a": "audio/mp4",
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
 }
 
 #: The only actor subdirectories whose files are servable.
@@ -111,8 +116,8 @@ CSP = (
     "default-src 'none'; "
     "img-src 'self' data:; "
     "media-src 'self'; "
-    "style-src 'self' 'unsafe-inline'; "
-    "script-src 'self' 'unsafe-inline'; "
+    "style-src 'self'; "
+    "script-src 'self'; "
     "connect-src 'self'; "
     "base-uri 'none'; "
     "form-action 'none'; "
@@ -212,6 +217,9 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/jobs/"):
             self._guard(self._handle_jobs, path)
             return
+        if path.startswith("/static/"):
+            self._serve_static(path)
+            return
         if path == "/gallery.html":
             self._serve_page(ROOT / "gallery.html")
             return
@@ -249,6 +257,23 @@ class Handler(BaseHTTPRequestHandler):
         self._security_headers()
         self.end_headers()
         self.wfile.write(body)
+
+    def _serve_static(self, path: str) -> None:
+        parts = [unquote(p) for p in path.strip("/").split("/")]
+        if len(parts) != 2 or parts[0] != "static":
+            self._respond(404, {"error": "not found"})
+            return
+        filename = sanitize_filename(parts[1])
+        ext = Path(filename).suffix.lower()
+        if not filename or ext not in CONTENT_TYPES:
+            self._respond(404, {"error": "not found"})
+            return
+        candidate = STATIC_DIR / filename
+        safe = self._resolved_under(STATIC_DIR, candidate)
+        if safe is None or not safe.is_file():
+            self._respond(404, {"error": "not found"})
+            return
+        self._send_bytes(safe.read_bytes(), CONTENT_TYPES[ext])
 
     def _serve_media(self, path: str) -> None:
         parts = [unquote(p) for p in path.strip("/").split("/")]
