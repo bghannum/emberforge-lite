@@ -89,6 +89,25 @@ class TestLinkUnlink:
             assert status == 200
             assert body["unlinked"] == "hum.wav"
 
+    def test_link_rejects_slug_that_sanitizes_empty(self, data_root):
+        # Regression: _handle_link now sanitizes+empty-checks like its siblings.
+        with running_server(data_root) as port:
+            status, body = call(port, "POST", "/link", {"slug": "..", "animation": "idle.gif", "sound": "hum.wav"})
+            assert status == 400
+            assert "invalid slug or filename" in body["error"]
+
+    def test_link_sanitizes_traversal_in_names(self, data_root):
+        # Regression: traversal in the animation/sound names is stripped to the
+        # basename before add_link runs, so links.json can only ever name assets
+        # inside this actor -- never a path that climbed out of it.
+        with running_server(data_root) as port:
+            status, _ = call(
+                port, "POST", "/link", {"slug": "hero", "animation": "../../idle.gif", "sound": "../../hum.wav"}
+            )
+            assert status == 200
+            links = json.loads((data_root / "actors" / "hero" / "links.json").read_text())
+            assert links == {"idle.gif": ["hum.wav"]}
+
 
 class TestTrim:
     def test_trim_writes_new_sound(self, data_root):

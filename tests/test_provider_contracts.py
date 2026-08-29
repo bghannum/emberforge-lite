@@ -127,6 +127,33 @@ class TestElevenLabs:
         with pytest.raises(ProviderRejected):
             p.submit(GenerationRequest(stage="sound", prompt="x", duration_ms=99))
 
+    def test_response_cookies_never_reach_provenance(self):
+        # Regression: ElevenLabs copies response headers into provenance (which
+        # is written to disk and shipped in exports). Session/credential headers
+        # must be dropped, not persisted -- like the OpenAI/SpriteLab adapters.
+        wav = _wav(800, b"ck")
+        resp = Response(
+            200,
+            wav,
+            {
+                "Content-Type": "audio/mpeg",
+                "Set-Cookie": "session=supersecret; HttpOnly",
+                "Cookie": "session=supersecret",
+                "request-id": "req_ok",
+            },
+        )
+        p = ElevenLabs(key="t", transport=FakeTransport(resp))
+        r = p.submit(GenerationRequest(stage="sound", prompt="whoosh", duration_ms=800))
+        vendor = p.collect(r.job_id)[0].provenance.vendor
+        # Secret/session headers are dropped from the persisted provenance...
+        assert "header.set-cookie" not in vendor
+        assert "header.cookie" not in vendor
+        assert not any("supersecret" in str(v) for v in vendor.values())
+        # ...the submission receipt carries the same guarantee...
+        assert "header.set-cookie" not in r.raw and "header.cookie" not in r.raw
+        # ...while a non-secret response header is still retained.
+        assert vendor.get("header.request-id") == "req_ok"
+
 
 # -- SpriteLab (animation, async) -------------------------------------------
 
