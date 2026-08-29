@@ -319,9 +319,7 @@ class FakeProvider:
         if job_id not in self._jobs:
             raise ProviderRejected(f"{self.name}: unknown job {job_id}")
         if self.script.ambiguous_on_poll:
-            raise AmbiguousOutcome(
-                f"{self.name}: job {job_id} did not resolve; do not resubmit", job_id=job_id
-            )
+            raise AmbiguousOutcome(f"{self.name}: job {job_id} did not resolve; do not resubmit", job_id=job_id)
 
         request, _ = self._jobs[job_id]
         self._polls[job_id] += 1
@@ -349,9 +347,7 @@ class FakeProvider:
 
         request, state = self._jobs[job_id]
         if state != "succeeded":
-            raise ProviderRejected(
-                f"{self.name}: job {job_id} is {state}; results are only available once it succeeds"
-            )
+            raise ProviderRejected(f"{self.name}: job {job_id} is {state}; results are only available once it succeeds")
 
         charge = None if self.script.silent_about_charges else self.per_call
         return tuple(
@@ -447,8 +443,7 @@ class FakeSpriteLab(FakeProvider):
             width, height = _png_size(request.source_png)
             if max(width, height) > self.max_input_axis:
                 raise ProviderRejected(
-                    f"spritelab: input is {width}x{height}, over the "
-                    f"{self.max_input_axis}px per-axis limit"
+                    f"spritelab: input is {width}x{height}, over the {self.max_input_axis}px per-axis limit"
                 )
         return super().submit(request)
 

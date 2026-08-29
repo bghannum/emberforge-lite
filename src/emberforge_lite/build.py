@@ -42,6 +42,7 @@ def configure_paths(paths) -> None:
     ACTORS_DIR = paths.actors
     OUTPUT = paths.site / "gallery.html"
 
+
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".m4a"}
 
@@ -124,6 +125,8 @@ def trim_button_html(esc_slug: str, sound: str, duration: int | None, link_to: s
         f'data-duration="{duration or 0}" data-link-to="{html.escape(link_to, quote=True)}">'
         f"{SCISSORS_ICON}</button>"
     )
+
+
 SPARK_ICON = (
     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" '
     'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
@@ -137,11 +140,7 @@ ANIMATION_PROMPT_TEMPLATE = (
     "must show the same standing pose as the first. Feet stay planted; the body does not travel."
 )
 #: Sound prompts worked best when they named what must NOT be in the sound.
-SOUND_PROMPT_PLACEHOLDER = (
-    "A short arcane whoosh with a shimmering tail. No metal, no scraping, no music, no voice."
-)
-
-
+SOUND_PROMPT_PLACEHOLDER = "A short arcane whoosh with a shimmering tail. No metal, no scraping, no music, no voice."
 
 
 def list_media(folder: Path, exts: set[str]) -> list[Path]:
@@ -221,8 +220,7 @@ def render_actor(actor_dir: Path) -> str:
     linked_names = {s for names in links.values() for s in names}
     unlinked_sounds = [p for p in sounds if p.name not in linked_names]
     unlinked_options = "".join(
-        f'<option value="{html.escape(p.name, quote=True)}">{html.escape(p.name)}</option>'
-        for p in unlinked_sounds
+        f'<option value="{html.escape(p.name, quote=True)}">{html.escape(p.name)}</option>' for p in unlinked_sounds
     )
 
     sprite_options = "".join(
@@ -299,7 +297,7 @@ def render_actor(actor_dir: Path) -> str:
             f"</div>"
             f'<div class="anim-body">'
             f'<div class="asset-name-row"><div class="asset-name">{html.escape(p.name)} '
-            f'{provenance_badge(prov_assets, "animations", p.name)}</div>'
+            f"{provenance_badge(prov_assets, 'animations', p.name)}</div>"
             f"{sheet_link}{asset_actions_html(esc_slug, p.name)}</div>"
             f"{speed_row}"
             f'<div class="sound-pills">{buttons or NO_SOUND_HTML}</div>'
@@ -466,8 +464,8 @@ def render_index_body(actor_dirs: list[Path]) -> str:
         f'<a class="actor-card" href="{ACTOR_PAGE_PREFIX}{html.escape(d.name, quote=True)}.html">'
         f"<h2>{html.escape(d.name)}</h2>"
         f'<div class="section-meta">{len(list_media(d / "sprites", IMAGE_EXTS))} sprites &middot; '
-        f'{len(list_media(d / "animations", IMAGE_EXTS))} animations &middot; '
-        f'{len(list_media(d / "sounds", AUDIO_EXTS))} sounds</div>'
+        f"{len(list_media(d / 'animations', IMAGE_EXTS))} animations &middot; "
+        f"{len(list_media(d / 'sounds', AUDIO_EXTS))} sounds</div>"
         f"</a>"
         for d in actor_dirs
     )
@@ -481,7 +479,7 @@ def build() -> int:
     valid_slugs = {d.name for d in actor_dirs}
 
     for f in ROOT.glob(f"{ACTOR_PAGE_PREFIX}*.html"):
-        if f.stem[len(ACTOR_PAGE_PREFIX):] not in valid_slugs:
+        if f.stem[len(ACTOR_PAGE_PREFIX) :] not in valid_slugs:
             f.unlink()
 
     for d in actor_dirs:

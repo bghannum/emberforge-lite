@@ -330,8 +330,7 @@ class SpriteLab:
         state = _TERMINAL.get(status, "running")
         if state != "succeeded":
             raise ProviderRejected(
-                f"spritelab: job {job_id} is {status or 'in progress'}; results are only "
-                f"available once it succeeds"
+                f"spritelab: job {job_id} is {status or 'in progress'}; results are only available once it succeeds"
             )
 
         sheet = self._asset(data, "sheet_b64", "png", job_id)
@@ -343,9 +342,7 @@ class SpriteLab:
                 candidate_id=self._candidate_id(job_id),
                 media=sheet,
                 media_kind="png",
-                provenance=self._provenance(
-                    data, job_id, submitted_at=submitted_at, transforms=transforms
-                ),
+                provenance=self._provenance(data, job_id, submitted_at=submitted_at, transforms=transforms),
                 # SpriteLab states no per-job figure. None is unknown, not zero,
                 # and the ledger keeps the reserve until a human reconciles it
                 # against the balance.
@@ -458,8 +455,7 @@ class SpriteLab:
         """
         if response.status in (401, 403):
             raise AuthenticationFailed(
-                f"spritelab: authentication failed ({response.status}). Check "
-                f"{KEY_ENV_VAR} and the key's permissions."
+                f"spritelab: authentication failed ({response.status}). Check {KEY_ENV_VAR} and the key's permissions."
             )
         if response.status == 429:
             raise RateLimited(
@@ -469,13 +465,9 @@ class SpriteLab:
         if response.status == 404 and job_id is not None:
             raise ProviderRejected(f"spritelab: unknown job {job_id}")
         if 400 <= response.status < 500:
-            raise ProviderRejected(
-                f"spritelab: request refused ({response.status}): {self._body_hint(response)}"
-            )
+            raise ProviderRejected(f"spritelab: request refused ({response.status}): {self._body_hint(response)}")
         if response.status >= 500:
-            raise ProviderError(
-                f"spritelab: server error ({response.status}): {self._body_hint(response)}"
-            )
+            raise ProviderError(f"spritelab: server error ({response.status}): {self._body_hint(response)}")
 
         try:
             return response.json()
@@ -515,9 +507,7 @@ class SpriteLab:
                 return redact(value)
         return "generation failed upstream"
 
-    def _asset(
-        self, data: dict[str, Any], field_name: str, kind: MediaKind, job_id: str
-    ) -> bytes | None:
+    def _asset(self, data: dict[str, Any], field_name: str, kind: MediaKind, job_id: str) -> bytes | None:
         """Decode one returned asset, bounding it before anything else reads it.
 
         The filename is never the provider's: a provider-supplied name can carry
@@ -530,9 +520,7 @@ class SpriteLab:
         try:
             payload = base64.b64decode(encoded, validate=True)
         except (binascii.Error, ValueError) as exc:
-            raise ProviderError(
-                f"spritelab: job {job_id} returned {field_name} that is not valid base64"
-            ) from exc
+            raise ProviderError(f"spritelab: job {job_id} returned {field_name} that is not valid base64") from exc
 
         if len(payload) > MAX_FILE_BYTES:
             raise ProviderError(
@@ -541,17 +529,13 @@ class SpriteLab:
             )
         signature = PNG_SIGNATURE if kind == "png" else GIF_SIGNATURES
         if not payload.startswith(signature):
-            raise ProviderError(
-                f"spritelab: job {job_id} returned {field_name} whose bytes are not a {kind}"
-            )
+            raise ProviderError(f"spritelab: job {job_id} returned {field_name} whose bytes are not a {kind}")
 
         inspect = inspect_png if kind == "png" else inspect_gif
         try:
             inspect(payload)
         except Rejected as exc:
-            raise ProviderError(
-                f"spritelab: job {job_id} returned a {kind} that failed validation: {exc}"
-            ) from exc
+            raise ProviderError(f"spritelab: job {job_id} returned a {kind} that failed validation: {exc}") from exc
         return payload
 
     @staticmethod
@@ -639,9 +623,7 @@ class SpriteLab:
         been discarded. Design package §7 accepts only a still PNG.
         """
         if len(payload) > MAX_FILE_BYTES:
-            raise ProviderRejected(
-                f"spritelab: source is {len(payload)} bytes, over the {MAX_FILE_BYTES}-byte limit"
-            )
+            raise ProviderRejected(f"spritelab: source is {len(payload)} bytes, over the {MAX_FILE_BYTES}-byte limit")
         if not payload.startswith(PNG_SIGNATURE):
             raise ProviderRejected("spritelab: a source sprite must be a PNG")
 
@@ -720,23 +702,15 @@ class SpriteLabSource(SpriteLab):
     detail: int = 1
     #: sprite id -> (request, png bytes, vendor metadata). Synchronous, so the
     #: result exists before there is anything to poll.
-    _sprites: dict[str, tuple[GenerationRequest, bytes, dict[str, Any]]] = field(
-        default_factory=dict, repr=False
-    )
+    _sprites: dict[str, tuple[GenerationRequest, bytes, dict[str, Any]]] = field(default_factory=dict, repr=False)
 
     def __post_init__(self) -> None:
         if self.quality not in VALID_QUALITIES:
-            raise ValueError(
-                f"quality must be one of {sorted(VALID_QUALITIES)}, not {self.quality!r}"
-            )
+            raise ValueError(f"quality must be one of {sorted(VALID_QUALITIES)}, not {self.quality!r}")
         if self.direction not in VALID_DIRECTIONS:
-            raise ValueError(
-                f"direction must be one of {sorted(VALID_DIRECTIONS)}, not {self.direction!r}"
-            )
+            raise ValueError(f"direction must be one of {sorted(VALID_DIRECTIONS)}, not {self.direction!r}")
         if not MIN_SOURCE_HEIGHT <= self.height <= MAX_SOURCE_HEIGHT:
-            raise ValueError(
-                f"height must be {MIN_SOURCE_HEIGHT}-{MAX_SOURCE_HEIGHT}, not {self.height}"
-            )
+            raise ValueError(f"height must be {MIN_SOURCE_HEIGHT}-{MAX_SOURCE_HEIGHT}, not {self.height}")
         if not 1 <= self.detail <= 3:
             raise ValueError(f"detail must be 1-3, not {self.detail}")
 
@@ -862,8 +836,7 @@ class SpriteLabSource(SpriteLab):
                     # A generated source is the start of the path, so nothing has
                     # been done to it. An empty tuple here is a fact, not a gap.
                     transforms=transforms,
-                    vendor={k: v for k, v in vendor.items() if not k.startswith("_")}
-                    | {"vendor_candidate_id": job_id},
+                    vendor={k: v for k, v in vendor.items() if not k.startswith("_")} | {"vendor_candidate_id": job_id},
                 ),
                 reported_charge=Decimal(charge) if charge is not None else None,
                 charge_unit=self.unit if charge is not None else None,
@@ -913,9 +886,7 @@ class SpriteLabSource(SpriteLab):
         delta = Decimal(before - after)
         expected = self.credits_per_sprite
         if delta != expected:
-            vendor["charge_disagreement"] = (
-                f"balance fell {delta} and {self.quality} is documented at {expected}"
-            )
+            vendor["charge_disagreement"] = f"balance fell {delta} and {self.quality} is documented at {expected}"
             return None
         vendor["_charge"] = str(delta)
         return delta
@@ -925,8 +896,7 @@ class SpriteLabSource(SpriteLab):
         """Bound the returned image before anything decodes it."""
         if len(payload) > MAX_FILE_BYTES:
             raise ProviderRejected(
-                f"spritelab: /generate returned {len(payload)} bytes, over the "
-                f"{MAX_FILE_BYTES}-byte limit"
+                f"spritelab: /generate returned {len(payload)} bytes, over the {MAX_FILE_BYTES}-byte limit"
             )
         if not payload.startswith(PNG_SIGNATURE):
             raise ProviderRejected("spritelab: /generate did not return a PNG")
@@ -936,7 +906,6 @@ class SpriteLabSource(SpriteLab):
             raise ProviderRejected(f"spritelab: generated sprite rejected: {exc}") from exc
         if frames > 1:
             raise ProviderRejected(
-                f"spritelab: a source sprite must be a still image; this PNG declares "
-                f"{frames} frames"
+                f"spritelab: a source sprite must be a still image; this PNG declares {frames} frames"
             )
         return width, height

@@ -51,6 +51,7 @@ def configure_paths(paths) -> None:
     global ACTORS_DIR
     ACTORS_DIR = paths.actors
 
+
 DEFAULT_FRAMES = 16
 MAX_FRAMES = 64
 DEFAULT_SOUND_MS = 800
@@ -364,9 +365,7 @@ def read_ledger(slug: str) -> list[dict[str, Any]]:
             if lineno == len(lines):
                 # Interrupted final write: tolerate and stop.
                 break
-            raise LedgerError(
-                f"{slug}: malformed ledger record at {path}:{lineno}: {exc}"
-            ) from None
+            raise LedgerError(f"{slug}: malformed ledger record at {path}:{lineno}: {exc}") from None
     return records
 
 
@@ -417,7 +416,10 @@ def open_jobs(slug: str) -> list[dict[str, Any]]:
     return [
         {"id": r["id"], "job_id": r["job_id"], "action": r["settings"].get("action"), "ts": r["ts"]}
         for r in read_ledger(slug)
-        if r.get("event") == "submitted" and r.get("kind") == "animation" and r.get("job_id") and r["job_id"] not in terminal
+        if r.get("event") == "submitted"
+        and r.get("kind") == "animation"
+        and r.get("job_id")
+        and r["job_id"] not in terminal
     ]
 
 
@@ -483,18 +485,43 @@ def run_sync(slug: str, kind: str, params: dict[str, Any], confirm_amount: Any) 
                 break
         if status is None or status.state != "succeeded":
             detail = redact((status.detail if status else None) or "generation did not complete")
-            _append(slug, _record(prepared, "failed", est, id=submitted["id"], job_id=receipt.job_id,
-                                  refunded=status.refunded if status else None, error=detail))
+            _append(
+                slug,
+                _record(
+                    prepared,
+                    "failed",
+                    est,
+                    id=submitted["id"],
+                    job_id=receipt.job_id,
+                    refunded=status.refunded if status else None,
+                    error=detail,
+                ),
+            )
             raise GenerateError(502, detail)
         candidates = prepared.provider.collect(receipt.job_id)
     except ProviderError as exc:
         err = _from_provider_error(exc)
         event = "ambiguous" if isinstance(exc, AmbiguousOutcome) else "failed"
-        _append(slug, _record(prepared, event, est, id=submitted["id"], job_id=getattr(exc, "job_id", None), error=err.payload["error"]))
+        _append(
+            slug,
+            _record(
+                prepared,
+                event,
+                est,
+                id=submitted["id"],
+                job_id=getattr(exc, "job_id", None),
+                error=err.payload["error"],
+            ),
+        )
         raise err from None
 
     if not candidates:
-        _append(slug, _record(prepared, "failed", est, id=submitted["id"], job_id=receipt.job_id, error="provider returned no result"))
+        _append(
+            slug,
+            _record(
+                prepared, "failed", est, id=submitted["id"], job_id=receipt.job_id, error="provider returned no result"
+            ),
+        )
         raise GenerateError(502, "provider returned no result")
     cand = candidates[0]
 
@@ -565,7 +592,17 @@ def submit_animation(slug: str, params: dict[str, Any], confirm_amount: Any) -> 
             err = _from_provider_error(exc)
             event = "ambiguous" if isinstance(exc, AmbiguousOutcome) else "failed"
             _append(slug, submitted)
-            _append(slug, _record(prepared, event, est, id=submitted["id"], job_id=getattr(exc, "job_id", None), error=err.payload["error"]))
+            _append(
+                slug,
+                _record(
+                    prepared,
+                    event,
+                    est,
+                    id=submitted["id"],
+                    job_id=getattr(exc, "job_id", None),
+                    error=err.payload["error"],
+                ),
+            )
             raise err from None
 
         submitted["job_id"] = receipt.job_id
@@ -598,12 +635,16 @@ def advance_job(slug: str, job_id: str) -> dict[str, Any]:
         # record before polling. Real adapters recognize the job themselves.
         if hasattr(provider, "adopt"):
             try:
-                resumed = prepare(slug, "animation", {
-                    "prompt": submitted.get("prompt", ""),
-                    "sprite": submitted["settings"].get("sprite", ""),
-                    "action": submitted["settings"].get("action", ""),
-                    "frames": submitted["settings"].get("frames", DEFAULT_FRAMES),
-                })
+                resumed = prepare(
+                    slug,
+                    "animation",
+                    {
+                        "prompt": submitted.get("prompt", ""),
+                        "sprite": submitted["settings"].get("sprite", ""),
+                        "action": submitted["settings"].get("action", ""),
+                        "frames": submitted["settings"].get("frames", DEFAULT_FRAMES),
+                    },
+                )
                 provider.adopt(job_id, resumed.request)
             except GenerateError:
                 pass  # Sprite gone or params unrecoverable: let poll report it.

@@ -158,21 +158,23 @@ class TestHostHeader:
 class TestCsrfAndOrigin:
     def test_rebuild_requires_csrf(self, data_root):
         with running_server(data_root) as port:
-            status, _, _ = request(port, "POST", "/rebuild", body=b"{}",
-                                   headers={"Origin": f"http://127.0.0.1:{port}"})
+            status, _, _ = request(port, "POST", "/rebuild", body=b"{}", headers={"Origin": f"http://127.0.0.1:{port}"})
             assert status == 403
 
     def test_rebuild_rejects_foreign_origin(self, data_root):
         with running_server(data_root) as port:
-            status, _, _ = request(port, "POST", "/rebuild", body=b"{}",
-                                   headers={"Origin": "http://evil.example.com",
-                                            "X-CSRF-Token": server.CSRF_TOKEN})
+            status, _, _ = request(
+                port,
+                "POST",
+                "/rebuild",
+                body=b"{}",
+                headers={"Origin": "http://evil.example.com", "X-CSRF-Token": server.CSRF_TOKEN},
+            )
             assert status == 403
 
     def test_rebuild_rejects_missing_origin(self, data_root):
         with running_server(data_root) as port:
-            status, _, _ = request(port, "POST", "/rebuild", body=b"{}",
-                                   headers={"X-CSRF-Token": server.CSRF_TOKEN})
+            status, _, _ = request(port, "POST", "/rebuild", body=b"{}", headers={"X-CSRF-Token": server.CSRF_TOKEN})
             assert status == 403
 
     def test_rebuild_allowed_with_token_and_origin(self, data_root):
@@ -182,23 +184,30 @@ class TestCsrfAndOrigin:
 
     def test_upload_requires_csrf(self, data_root):
         with running_server(data_root) as port:
-            status, _, _ = request(port, "PUT", "/upload/hero/x.png", body=_png(32, 32, b"u"),
-                                   headers={"Origin": f"http://127.0.0.1:{port}"})
+            status, _, _ = request(
+                port,
+                "PUT",
+                "/upload/hero/x.png",
+                body=_png(32, 32, b"u"),
+                headers={"Origin": f"http://127.0.0.1:{port}"},
+            )
             assert status == 403
 
 
 class TestUploadValidation:
     def test_valid_png_upload(self, data_root):
         with running_server(data_root) as port:
-            status, _, _ = request(port, "PUT", "/upload/hero/new.png", body=_png(32, 32, b"u"),
-                                   headers=mutating_headers(port))
+            status, _, _ = request(
+                port, "PUT", "/upload/hero/new.png", body=_png(32, 32, b"u"), headers=mutating_headers(port)
+            )
             assert status == 200
             assert (data_root / "actors" / "hero" / "sprites" / "new.png").is_file()
 
     def test_invalid_png_leaves_no_file(self, data_root):
         with running_server(data_root) as port:
-            status, _, _ = request(port, "PUT", "/upload/hero/bad.png", body=b"not a real png",
-                                   headers=mutating_headers(port))
+            status, _, _ = request(
+                port, "PUT", "/upload/hero/bad.png", body=b"not a real png", headers=mutating_headers(port)
+            )
             assert status == 400
             sprites = list((data_root / "actors" / "hero" / "sprites").iterdir())
             assert [p.name for p in sprites] == ["base.png"]
@@ -207,8 +216,7 @@ class TestUploadValidation:
         monkeypatch.setattr(server, "MAX_UPLOAD_BYTES", 1024)
         with running_server(data_root) as port:
             big = _png(64, 64, b"big") + b"\x00" * 4096
-            status, _, _ = request(port, "PUT", "/upload/hero/big.png", body=big,
-                                   headers=mutating_headers(port))
+            status, _, _ = request(port, "PUT", "/upload/hero/big.png", body=big, headers=mutating_headers(port))
             assert status == 413
             assert not (data_root / "actors" / "hero" / "sprites" / "big.png").exists()
 

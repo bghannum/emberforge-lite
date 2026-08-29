@@ -70,3 +70,14 @@ class TestActorLockReentrant:
         with storage.actor_lock("hero"):
             with storage.actor_lock("hero"):
                 assert True
+
+
+class TestQuietUnlink:
+    def test_clean_ignores_already_gone(self, tmp_path):
+        # A temp file removed between listing and unlink must not raise.
+        d = tmp_path / "actors"
+        d.mkdir()
+        (d / f"{storage.TMP_PREFIX}a").write_bytes(b"x")
+        # Second clean over an empty dir returns nothing.
+        storage.clean_stale_temp(d)
+        assert storage.clean_stale_temp(d) == []

@@ -33,8 +33,7 @@ def actor(tmp_path):
 
 class TestRecord:
     def test_generated_entry(self, actor):
-        provenance.record_generated(actor, "sprites/a.png", _Prov(),
-                                    reported_charge="0.006", charge_unit="usd")
+        provenance.record_generated(actor, "sprites/a.png", _Prov(), reported_charge="0.006", charge_unit="usd")
         entry = provenance.entry_for(actor, "sprites/a.png")
         assert entry["source"] == "generated"
         assert entry["provider"] == "openai"

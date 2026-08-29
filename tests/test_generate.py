@@ -145,11 +145,29 @@ class TestLedger:
 
     def test_open_jobs_excludes_terminal(self, gen_env):
         _make_actor(gen_env)
-        generate._append("hero", {"id": "a", "event": "submitted", "kind": "animation", "job_id": "j1",
-                                  "ts": "2026-08-29T00:00:00+00:00", "settings": {"action": "lunge"}})
+        generate._append(
+            "hero",
+            {
+                "id": "a",
+                "event": "submitted",
+                "kind": "animation",
+                "job_id": "j1",
+                "ts": "2026-08-29T00:00:00+00:00",
+                "settings": {"action": "lunge"},
+            },
+        )
         assert len(generate.open_jobs("hero")) == 1
-        generate._append("hero", {"id": "a", "event": "succeeded", "kind": "animation", "job_id": "j1",
-                                  "ts": "2026-08-29T00:00:01+00:00", "settings": {"action": "lunge"}})
+        generate._append(
+            "hero",
+            {
+                "id": "a",
+                "event": "succeeded",
+                "kind": "animation",
+                "job_id": "j1",
+                "ts": "2026-08-29T00:00:01+00:00",
+                "settings": {"action": "lunge"},
+            },
+        )
         assert generate.open_jobs("hero") == []
 
 

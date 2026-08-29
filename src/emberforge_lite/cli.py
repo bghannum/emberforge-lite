@@ -1,10 +1,10 @@
 """The ``emberforge-lite`` console entry point.
 
-    emberforge-lite serve [--port 8000] [--data-dir PATH] [--allow-spend] [--env-file PATH]
-    emberforge-lite build [--data-dir PATH]
-    emberforge-lite link ACTOR ANIMATION SOUND [--data-dir PATH]
-    emberforge-lite migrate SOURCE [--data-dir DEST]
-    emberforge-lite demo [--port 8000] [--keep] [--data-dir PATH]
+emberforge-lite serve [--port 8000] [--data-dir PATH] [--allow-spend] [--env-file PATH]
+emberforge-lite build [--data-dir PATH]
+emberforge-lite link ACTOR ANIMATION SOUND [--data-dir PATH]
+emberforge-lite migrate SOURCE [--data-dir DEST]
+emberforge-lite demo [--port 8000] [--keep] [--data-dir PATH]
 """
 
 from __future__ import annotations
@@ -20,23 +20,33 @@ from emberforge_lite.migrate import MigrationError, migrate
 
 
 def _add_data_dir(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--data-dir", metavar="PATH", default=None,
-                   help="data directory (default: $EMBERFORGE_DATA_DIR or the platform default)")
+    p.add_argument(
+        "--data-dir",
+        metavar="PATH",
+        default=None,
+        help="data directory (default: $EMBERFORGE_DATA_DIR or the platform default)",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="emberforge-lite", description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        prog="emberforge-lite", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--version", action="version", version=f"emberforge-lite {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_serve = sub.add_parser("serve", help="serve the review workbench on loopback")
     p_serve.add_argument("--port", type=int, default=8000)
     _add_data_dir(p_serve)
-    p_serve.add_argument("--allow-spend", action="store_true",
-                         help="use the live provider APIs (requires keys in the environment)")
-    p_serve.add_argument("--env-file", metavar="PATH", default=None,
-                         help="explicit .env file to load credentials from (never auto-discovered)")
+    p_serve.add_argument(
+        "--allow-spend", action="store_true", help="use the live provider APIs (requires keys in the environment)"
+    )
+    p_serve.add_argument(
+        "--env-file",
+        metavar="PATH",
+        default=None,
+        help="explicit .env file to load credentials from (never auto-discovered)",
+    )
 
     p_build = sub.add_parser("build", help="regenerate the static site from the actor tree")
     _add_data_dir(p_build)
@@ -96,8 +106,10 @@ def main(argv: list[str] | None = None) -> int:
         except (MigrationError, media.Rejected) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
-        print(f"migrated {summary['copied']} file(s) across {summary['actors']} actor(s) "
-              f"({summary['skipped']} excluded) into {paths.actors}")
+        print(
+            f"migrated {summary['copied']} file(s) across {summary['actors']} actor(s) "
+            f"({summary['skipped']} excluded) into {paths.actors}"
+        )
         return 0
 
     if args.command == "demo":

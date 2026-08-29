@@ -63,8 +63,8 @@ class TestNoInlineJavaScript:
         _, body = get(demo_port, f"/actor-{DEMO_SLUG}.html")
         text = body.decode()
         # Only external references, never inline blocks.
-        assert "<script src=\"/static/app.js\"" in text
-        assert "<link rel=\"stylesheet\" href=\"/static/app.css\">" in text
+        assert '<script src="/static/app.js"' in text
+        assert '<link rel="stylesheet" href="/static/app.css">' in text
         assert not re.search(r"<script>(?!\s*</script>).", text)
         assert "<style>" not in text
 

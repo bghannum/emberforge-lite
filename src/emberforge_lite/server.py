@@ -594,7 +594,9 @@ class Handler(BaseHTTPRequestHandler):
         if link_to and (actor_dir / "animations" / link_to).is_file():
             add_link(ACTORS_DIR, slug, link_to, target.name)
             linked = True
-        self._respond(200, {"filename": target.name, "duration_ms": duration, "linked": linked, "actors": build.build()})
+        self._respond(
+            200, {"filename": target.name, "duration_ms": duration, "linked": linked, "actors": build.build()}
+        )
 
     def _handle_rename(self):
         try:
@@ -731,8 +733,11 @@ def serve(paths, port: int = 8000, *, allow_spend: bool = False, env_file: Path 
     if allow_spend:
         live = [name for name, s in status.items() if s["live"]]
         missing = [name for name, s in status.items() if not s["configured"]]
-        print(f"SPEND ENABLED - live providers: {', '.join(live) or 'none'}"
-              + (f" (no key: {', '.join(missing)})" if missing else ""), flush=True)
+        print(
+            f"SPEND ENABLED - live providers: {', '.join(live) or 'none'}"
+            + (f" (no key: {', '.join(missing)})" if missing else ""),
+            flush=True,
+        )
     else:
         print("offline - fake providers (start with --allow-spend to use the real APIs)", flush=True)
 

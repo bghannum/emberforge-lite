@@ -80,8 +80,9 @@ class TestNoDoubleSubmit:
         for t in threads:
             t.join()
 
-        submitted = [r for r in generate.read_ledger("hero")
-                     if r.get("event") == "submitted" and r.get("kind") == "animation"]
+        submitted = [
+            r for r in generate.read_ledger("hero") if r.get("event") == "submitted" and r.get("kind") == "animation"
+        ]
         assert len(submitted) == 1, outcomes
         assert sum(1 for kind, _ in outcomes if kind == "err") == 1
 
@@ -119,7 +120,7 @@ class TestBadges:
         generate.run_sync("hero", "source", params, est["amount"])
         page = build.render_actor(d)
         assert "prov-generated" in page  # the generated source sprite
-        assert "prov-unknown" in page    # base.png, no provenance
+        assert "prov-unknown" in page  # base.png, no provenance
 
 
 @contextmanager

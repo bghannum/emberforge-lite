@@ -80,14 +80,12 @@ def call(port, method, path, payload=None, raw=None):
 class TestLinkUnlink:
     def test_link_then_unlink(self, data_root):
         with running_server(data_root) as port:
-            status, body = call(port, "POST", "/link",
-                                {"slug": "hero", "animation": "idle.gif", "sound": "hum.wav"})
+            status, body = call(port, "POST", "/link", {"slug": "hero", "animation": "idle.gif", "sound": "hum.wav"})
             assert status == 200
             links = json.loads((data_root / "actors" / "hero" / "links.json").read_text())
             assert links == {"idle.gif": ["hum.wav"]}
 
-            status, body = call(port, "POST", "/unlink",
-                                {"slug": "hero", "animation": "idle.gif", "sound": "hum.wav"})
+            status, body = call(port, "POST", "/unlink", {"slug": "hero", "animation": "idle.gif", "sound": "hum.wav"})
             assert status == 200
             assert body["unlinked"] == "hum.wav"
 
@@ -95,8 +93,9 @@ class TestLinkUnlink:
 class TestTrim:
     def test_trim_writes_new_sound(self, data_root):
         with running_server(data_root) as port:
-            status, body = call(port, "POST", "/trim",
-                                {"slug": "hero", "sound": "hum.wav", "start_ms": 0, "end_ms": 400})
+            status, body = call(
+                port, "POST", "/trim", {"slug": "hero", "sound": "hum.wav", "start_ms": 0, "end_ms": 400}
+            )
             assert status == 200
             assert body["filename"].startswith("hum_0-400")
             assert (data_root / "actors" / "hero" / "sounds" / body["filename"]).is_file()
@@ -105,16 +104,16 @@ class TestTrim:
 class TestRename:
     def test_rename_sound(self, data_root):
         with running_server(data_root) as port:
-            status, body = call(port, "POST", "/rename",
-                                {"slug": "hero", "filename": "hum.wav", "new_name": "drone.wav"})
+            status, body = call(
+                port, "POST", "/rename", {"slug": "hero", "filename": "hum.wav", "new_name": "drone.wav"}
+            )
             assert status == 200
             assert (data_root / "actors" / "hero" / "sounds" / "drone.wav").is_file()
             assert not (data_root / "actors" / "hero" / "sounds" / "hum.wav").exists()
 
     def test_rename_must_keep_type(self, data_root):
         with running_server(data_root) as port:
-            status, _ = call(port, "POST", "/rename",
-                             {"slug": "hero", "filename": "hum.wav", "new_name": "drone.png"})
+            status, _ = call(port, "POST", "/rename", {"slug": "hero", "filename": "hum.wav", "new_name": "drone.png"})
             assert status == 400
 
 
@@ -130,35 +129,60 @@ class TestDelete:
 class TestEstimateAndGenerate:
     def test_estimate_sound(self, data_root):
         with running_server(data_root) as port:
-            status, body = call(port, "POST", "/estimate",
-                                {"slug": "hero", "kind": "sound", "prompt": "hum", "duration_ms": 800})
+            status, body = call(
+                port, "POST", "/estimate", {"slug": "hero", "kind": "sound", "prompt": "hum", "duration_ms": 800}
+            )
             assert status == 200
             assert body["unit"] == "elevenlabs_credits"
 
     def test_generate_sound_requires_confirm(self, data_root):
         with running_server(data_root) as port:
-            status, _ = call(port, "POST", "/generate/sound",
-                             {"slug": "hero", "prompt": "hum", "duration_ms": 800})
+            status, _ = call(port, "POST", "/generate/sound", {"slug": "hero", "prompt": "hum", "duration_ms": 800})
             assert status == 400
 
     def test_generate_sound_end_to_end(self, data_root):
         with running_server(data_root) as port:
-            _, est = call(port, "POST", "/estimate",
-                          {"slug": "hero", "kind": "sound", "prompt": "hum", "duration_ms": 800, "name": "hum"})
-            status, body = call(port, "POST", "/generate/sound",
-                                {"slug": "hero", "prompt": "hum", "duration_ms": 800, "name": "hum",
-                                 "confirm_amount": est["amount"]})
+            _, est = call(
+                port,
+                "POST",
+                "/estimate",
+                {"slug": "hero", "kind": "sound", "prompt": "hum", "duration_ms": 800, "name": "hum"},
+            )
+            status, body = call(
+                port,
+                "POST",
+                "/generate/sound",
+                {"slug": "hero", "prompt": "hum", "duration_ms": 800, "name": "hum", "confirm_amount": est["amount"]},
+            )
             assert status == 200
             assert body["filename"]
 
     def test_animation_job_flow(self, data_root):
         with running_server(data_root) as port:
-            _, est = call(port, "POST", "/estimate",
-                          {"slug": "hero", "kind": "animation", "prompt": "lunge",
-                           "sprite": "base.png", "action": "lunge_attack"})
-            status, submitted = call(port, "POST", "/generate/animation",
-                                     {"slug": "hero", "prompt": "lunge", "sprite": "base.png",
-                                      "action": "lunge_attack", "confirm_amount": est["amount"]})
+            _, est = call(
+                port,
+                "POST",
+                "/estimate",
+                {
+                    "slug": "hero",
+                    "kind": "animation",
+                    "prompt": "lunge",
+                    "sprite": "base.png",
+                    "action": "lunge_attack",
+                },
+            )
+            status, submitted = call(
+                port,
+                "POST",
+                "/generate/animation",
+                {
+                    "slug": "hero",
+                    "prompt": "lunge",
+                    "sprite": "base.png",
+                    "action": "lunge_attack",
+                    "confirm_amount": est["amount"],
+                },
+            )
             assert status == 202
             job_id = submitted["job_id"]
             last = None
@@ -204,8 +228,9 @@ class TestProvenanceThroughServer:
         with running_server(data_root) as port:
             call(port, "PUT", "/upload/hero/orig.png", raw=_png(32, 32, b"u"))
             actor = data_root / "actors" / "hero"
-            status, _ = call(port, "POST", "/rename",
-                             {"slug": "hero", "filename": "orig.png", "new_name": "renamed.png"})
+            status, _ = call(
+                port, "POST", "/rename", {"slug": "hero", "filename": "orig.png", "new_name": "renamed.png"}
+            )
             assert status == 200
             assert provenance.entry_for(actor, "sprites/orig.png") is None
             assert provenance.entry_for(actor, "sprites/renamed.png")["source"] == "uploaded"

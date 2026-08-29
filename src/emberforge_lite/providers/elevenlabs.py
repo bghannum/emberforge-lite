@@ -182,9 +182,7 @@ class ElevenLabs:
     model: str | None = None
 
     #: Results held between `submit` and `collect`, since the provider keeps none.
-    _results: dict[str, tuple[GenerationRequest, bytes, dict[str, Any]]] = field(
-        default_factory=dict, repr=False
-    )
+    _results: dict[str, tuple[GenerationRequest, bytes, dict[str, Any]]] = field(default_factory=dict, repr=False)
 
     def supports(self, stage: Stage) -> bool:
         return stage in self.stages
@@ -232,11 +230,7 @@ class ElevenLabs:
         """
         self._check_stage(request.stage)
         credits = self.credits_for(request.duration_ms) * request.candidate_count
-        billable = (
-            credits
-            if included_remaining is None
-            else max(Decimal(0), credits - max(0, included_remaining))
-        )
+        billable = credits if included_remaining is None else max(Decimal(0), credits - max(0, included_remaining))
         if billable <= 0:
             return None
         return Estimate(
@@ -422,8 +416,7 @@ class ElevenLabs:
                     attribution_required=False,
                     prompt=request.prompt,
                     transforms=transforms,
-                    vendor=dict(vendor)
-                    | {"job_id": job_id, "vendor_candidate_id": vendor.get("request_id") or job_id},
+                    vendor=dict(vendor) | {"job_id": job_id, "vendor_candidate_id": vendor.get("request_id") or job_id},
                 ),
                 # One generation, metered natively. Whether it also cost dollars
                 # depends on allowance the provider does not report per call, so
@@ -461,8 +454,7 @@ class ElevenLabs:
             return None
         if not MIN_DURATION_MS <= duration_ms <= MAX_DURATION_MS:
             raise ProviderRejected(
-                f"elevenlabs: {duration_ms}ms is outside the accepted "
-                f"{MIN_DURATION_MS}-{MAX_DURATION_MS}ms range"
+                f"elevenlabs: {duration_ms}ms is outside the accepted {MIN_DURATION_MS}-{MAX_DURATION_MS}ms range"
             )
         return duration_ms
 
@@ -471,9 +463,7 @@ class ElevenLabs:
         """A local handle, not a provider job. Named so nobody expects to poll it."""
         import hashlib
 
-        digest = hashlib.sha256(
-            f"{request.prompt}|{request.duration_ms}|{at.isoformat()}".encode()
-        ).hexdigest()[:16]
+        digest = hashlib.sha256(f"{request.prompt}|{request.duration_ms}|{at.isoformat()}".encode()).hexdigest()[:16]
         return f"local_{digest}"
 
     @staticmethod
@@ -566,9 +556,7 @@ class ElevenLabs:
             )
         if 400 <= response.status < 500:
             # Refused before generating. Nothing was made and nothing was metered.
-            raise ProviderRejected(
-                f"elevenlabs: request refused ({response.status}): {self._body_hint(response)}"
-            )
+            raise ProviderRejected(f"elevenlabs: request refused ({response.status}): {self._body_hint(response)}")
         if response.status >= 500:
             if submitting:
                 raise AmbiguousOutcome(
@@ -576,9 +564,7 @@ class ElevenLabs:
                     f"cannot be established. Do not resubmit; check reported usage.",
                     job_id=None,
                 )
-            raise ProviderError(
-                f"elevenlabs: server error ({response.status}): {self._body_hint(response)}"
-            )
+            raise ProviderError(f"elevenlabs: server error ({response.status}): {self._body_hint(response)}")
 
     @staticmethod
     def _retry_after(response: Response) -> float | None:

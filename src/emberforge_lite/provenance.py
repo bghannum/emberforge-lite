@@ -77,9 +77,7 @@ def record_generated(
             "attribution_text": provenance.attribution_text,
             "transforms": list(provenance.transforms) + list(extra_transforms),
             "reported_charge": (
-                {"unit": charge_unit, "amount": reported_charge}
-                if reported_charge is not None
-                else None
+                {"unit": charge_unit, "amount": reported_charge} if reported_charge is not None else None
             ),
             "vendor": dict(provenance.vendor),
         }

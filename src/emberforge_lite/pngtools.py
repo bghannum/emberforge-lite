@@ -56,8 +56,7 @@ def decode_rgba(data: bytes) -> tuple[int, int, bytearray]:
     _, _, depth, colour, _, _, interlace = ihdr
     if depth != 8 or colour not in (2, 6) or interlace != 0:
         raise PngUnsupported(
-            "only 8-bit RGB or RGBA, non-interlaced PNGs are supported; "
-            "re-export the sprite in that form"
+            "only 8-bit RGB or RGBA, non-interlaced PNGs are supported; re-export the sprite in that form"
         )
     bpp = 4 if colour == 6 else 3
     stride = width * bpp

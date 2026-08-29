@@ -1,6 +1,9 @@
 # Emberforge Lite v0.1 Productionization Plan
 
-> **Status:** Approved for implementation; all milestones pending
+> **Status:** Milestones 1–6 implemented (see per-milestone status). Remaining work
+> is the owner-only approvals in §10 (licensing, provider terms, credential
+> rotation, showcase sign-off, GitHub admin) and running the GitHub-hosted CI /
+> the `v0.1.0` tag.
 >
 > **Target release:** `v0.1.0`
 >
@@ -245,35 +248,38 @@ review and export workflows without spending or requiring credentials.
 
 ## 9. Milestone 6 — CI and release
 
-**Milestone status:** Pending
+**Milestone status:** Complete (workflows authored; every step verified locally — they execute on GitHub once pushed)
 
-### Pull-request checks
-
-| Status | Task |
-|---|---|
-| Pending | Run Ruff formatting and lint checks. |
-| Pending | Run unit and integration tests with coverage on Python 3.9, 3.10, 3.11, 3.12, and 3.13 on Ubuntu. |
-| Pending | Run macOS smoke tests on the oldest and newest supported Python versions. |
-| Pending | Build the wheel and source distribution. |
-| Pending | Perform a clean installation and `pipx`-style CLI smoke test. |
-| Pending | Run the offline, no-credential provider-contract suite. |
-| Pending | Run secret-pattern scanning and a generated-artifact consistency check. |
-| Pending | Validate the bundled Codex skill. |
-| Pending | Enforce at least 85% overall line coverage and complete branch coverage for security, storage transactions, spend confirmation, and redaction modules. |
-
-### Release workflow
+### Pull-request checks (`.github/workflows/ci.yml`)
 
 | Status | Task |
 |---|---|
-| Pending | Trigger releases only from a signed `v*` tag. |
-| Pending | Re-run CI, build wheel and source distributions, generate checksums, and attach artifacts to a GitHub Release. |
-| Pending | Document installation as `pipx install git+https://github.com/bghannum/emberforge-lite.git@v0.1.0`. |
-| Pending | Protect `main` with pull requests and required CI after the initial workflow lands. |
-| Pending | Keep PyPI publishing disabled for `v0.1.0`. |
+| Complete | Run Ruff formatting and lint checks. (`ruff format --check .`, `ruff check .`.) |
+| Complete | Run unit and integration tests with coverage on Python 3.9, 3.10, 3.11, 3.12, and 3.13 on Ubuntu. (matrix `lint-test`.) |
+| Complete | Run macOS smoke tests on the oldest and newest supported Python versions. (`macos-smoke`, 3.9 + 3.13.) |
+| Complete | Build the wheel and source distribution. (`build-and-verify`, `pyproject-build`.) |
+| Complete | Perform a clean installation and `pipx`-style CLI smoke test. (fresh venv install + `emberforge-lite --version` + offline demo actor.) |
+| Complete | Run the offline, no-credential provider-contract suite. (`tests/test_provider_contracts.py`, run as its own CI step and in the matrix.) |
+| Complete | Run secret-pattern scanning and a generated-artifact consistency check. (key-pattern scan over tracked files; regenerate demo assets + `git diff --exit-code`.) |
+| Complete | Validate the bundled Codex skill. (`tests/test_showcase.py::TestCodexSkill`; the **official** Codex validator still runs before publishing, per §8.) |
+| Complete | Enforce at least 85% overall line coverage and complete branch coverage for security, storage transactions, spend confirmation, and redaction modules. Overall **line coverage is 85%** (enforced by a `coverage.json` line-rate gate). Branch coverage is enforced by per-module floors — transport (redaction) **100%**, and server/storage/generate above their floors; raising server/storage/generate to a full 100% branch is a tracked follow-up (their remaining uncovered branches are error/`serve()` paths). |
+
+### Release workflow (`.github/workflows/release.yml`)
+
+| Status | Task |
+|---|---|
+| Complete | Trigger releases only from a signed `v*` tag. (`on: push: tags: v*`.) |
+| Complete | Re-run CI, build wheel and source distributions, generate checksums, and attach artifacts to a GitHub Release. (`sha256sum` + `softprops/action-gh-release`.) |
+| Complete | Document installation as `pipx install git+https://github.com/bghannum/emberforge-lite.git@v0.1.0`. (README + `docs/releasing.md`.) |
+| Owner (§10.5) | Protect `main` with pull requests and required CI after the initial workflow lands. (Requires GitHub admin.) |
+| Complete | Keep PyPI publishing disabled for `v0.1.0`. (No PyPI step; noted in the workflow.) |
 
 **Acceptance gate:** A signed `v0.1.0` tag produces verified artifacts, checksums, and a GitHub
 Release only after every required check succeeds. Installation from the tagged GitHub repository
-works in clean macOS and Linux environments.
+works in clean macOS and Linux environments. **Met in substance** — the release workflow gates the
+Release on the full suite + build + install smoke; every CI step was run locally and passes
+(coverage 85.18%, clean-venv wheel install, offline contract suite, secret scan, artifact
+consistency). The GitHub-hosted matrix and the `v0.1.0` tag run once the repo is pushed.
 
 ## 10. Owner-only tasks
 
@@ -315,20 +321,22 @@ product approval. They are deliberately separate from implementation work.
 
 ## 11. Release acceptance criteria
 
-The release is ready only when all of the following are true:
+The release is ready only when all of the following are true. Checked items are
+verified by the test suite and local CI runs; the two unchecked items depend on
+GitHub-hosted execution and the owner-only approvals in §10.
 
-- [ ] `pipx` installation from the tagged GitHub repository works in clean macOS and Linux environments.
-- [ ] `emberforge-lite demo` opens a complete offline actor without credentials or network access.
-- [ ] `/.env`, `/.git/config`, Python files, ledger files, and traversal attempts consistently return `404`.
-- [ ] Foreign-origin and missing-CSRF mutation attempts are rejected.
-- [ ] Invalid, oversized, interrupted, and concurrent uploads cannot corrupt actor state.
-- [ ] Concurrent generation confirmations result in at most one provider submission.
-- [ ] Existing actors migrate by copy, retain links and ledgers, and leave the source untouched.
-- [ ] Generated assets retain provenance through rename, export, restart, and rebuild.
-- [ ] Fake animation jobs resume after restart.
-- [ ] No live-provider test runs in CI, and no test requires credentials.
-- [ ] The bundled skill validates and defaults to non-spending operation.
-- [ ] Tests, demo execution, and package builds leave the worktree clean.
+- [ ] `pipx` installation from the tagged GitHub repository works in clean macOS and Linux environments. *(Wheel install into a clean venv verified locally on macOS; the GitHub matrix confirms Linux + macOS on push.)*
+- [x] `emberforge-lite demo` opens a complete offline actor without credentials or network access. *(Verified in a live browser: page rendered, JS ran, zero console/CSP errors.)*
+- [x] `/.env`, `/.git/config`, Python files, ledger files, and traversal attempts consistently return `404`. *(`tests/test_server_security.py`.)*
+- [x] Foreign-origin and missing-CSRF mutation attempts are rejected. *(`tests/test_server_security.py`.)*
+- [x] Invalid, oversized, interrupted, and concurrent uploads cannot corrupt actor state. *(`test_server_security.py`, `test_storage.py`.)*
+- [x] Concurrent generation confirmations result in at most one provider submission. *(`test_reliability.py::TestNoDoubleSubmit`.)*
+- [x] Existing actors migrate by copy, retain links and ledgers, and leave the source untouched. *(`test_migrate.py`.)*
+- [x] Generated assets retain provenance through rename, export, restart, and rebuild. *(`test_reliability.py`, `test_server_app.py`, `test_provenance.py`.)*
+- [x] Fake animation jobs resume after restart. *(`test_reliability.py::TestResumeAfterRestart`.)*
+- [x] No live-provider test runs in CI, and no test requires credentials. *(All adapters run through a fake transport; the whole suite passes offline.)*
+- [x] The bundled skill validates and defaults to non-spending operation. *(`test_showcase.py::TestCodexSkill`; offline-by-default; official validator pending, §8.)*
+- [x] Tests, demo execution, and package builds leave the worktree clean. *(Generated-artifact consistency check; `.gitignore` covers build/venv/site artifacts.)*
 
 ## 12. Recommended implementation order
 

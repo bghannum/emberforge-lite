@@ -59,10 +59,16 @@ class TestPublicFiles:
     def test_community_file_present(self, name):
         assert (REPO / name).is_file()
 
-    @pytest.mark.parametrize("name", [
-        "architecture.md", "threat-model.md", "provenance-format.md",
-        "providers.md", "releasing.md",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "architecture.md",
+            "threat-model.md",
+            "provenance-format.md",
+            "providers.md",
+            "releasing.md",
+        ],
+    )
     def test_doc_present(self, name):
         assert (REPO / "docs" / name).is_file()
 

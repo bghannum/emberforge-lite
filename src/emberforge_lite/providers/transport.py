@@ -178,9 +178,7 @@ class UrllibTransport:
                 )
         except urllib.error.HTTPError as exc:
             # An HTTP error is a real answer. The adapter decides what it means.
-            return Response(
-                status=exc.code, body=self._read_bounded(exc), headers=dict(exc.headers or {})
-            )
+            return Response(status=exc.code, body=self._read_bounded(exc), headers=dict(exc.headers or {}))
         except urllib.error.URLError as exc:
             raise TransportError(redact(f"could not reach {url}: {exc.reason}")) from exc
         except TimeoutError as exc:
@@ -194,7 +192,5 @@ class UrllibTransport:
         """
         payload = stream.read(self.max_response_bytes + 1)
         if len(payload) > self.max_response_bytes:
-            raise TransportError(
-                f"response exceeds the {self.max_response_bytes}-byte limit; refused unread"
-            )
+            raise TransportError(f"response exceeds the {self.max_response_bytes}-byte limit; refused unread")
         return bytes(payload)

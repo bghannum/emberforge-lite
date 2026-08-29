@@ -169,15 +169,11 @@ class OpenAIImages:
     unit: str = "usd"
     stages: tuple[Stage, ...] = ("source",)
     #: request id -> (request, png bytes, vendor metadata).
-    _results: dict[str, tuple[GenerationRequest, bytes, dict[str, Any]]] = field(
-        default_factory=dict, repr=False
-    )
+    _results: dict[str, tuple[GenerationRequest, bytes, dict[str, Any]]] = field(default_factory=dict, repr=False)
 
     def __post_init__(self) -> None:
         if self.background not in VALID_BACKGROUNDS:
-            raise ValueError(
-                f"background must be one of {sorted(VALID_BACKGROUNDS)}, not {self.background!r}"
-            )
+            raise ValueError(f"background must be one of {sorted(VALID_BACKGROUNDS)}, not {self.background!r}")
         if (self.quality, self.size) not in USD_PER_IMAGE:
             raise ValueError(
                 f"no price was read for quality {self.quality!r} at size {self.size!r}. "
@@ -242,9 +238,7 @@ class OpenAIImages:
         has_alpha = png_has_alpha(png)
         headers = {k.lower(): v for k, v in response.headers.items()}
         request_id = (
-            headers.get("x-request-id")
-            or str(data.get("id") or "")
-            or f"img_{hashlib.sha256(png).hexdigest()[:16]}"
+            headers.get("x-request-id") or str(data.get("id") or "") or f"img_{hashlib.sha256(png).hexdigest()[:16]}"
         )
 
         vendor: dict[str, Any] = {
@@ -268,9 +262,7 @@ class OpenAIImages:
             # for it, and throwing it away would destroy the one artefact the
             # charge bought while leaving the charge. A reviewer can see this on
             # the page and decide; an exception here would decide for them.
-            vendor["background_disagreement"] = (
-                "transparent was requested and the returned PNG has no alpha channel"
-            )
+            vendor["background_disagreement"] = "transparent was requested and the returned PNG has no alpha channel"
         self._results[request_id] = (request, png, vendor)
         return SubmissionReceipt(job_id=request_id, submitted_at=submitted_at, raw=dict(vendor))
 
@@ -345,9 +337,7 @@ class OpenAIImages:
 
     def _check_stage(self, stage: Stage) -> None:
         if stage not in self.stages:
-            raise ProviderRejected(
-                f"openai_images: this adapter generates {self.stages}, not {stage!r}"
-            )
+            raise ProviderRejected(f"openai_images: this adapter generates {self.stages}, not {stage!r}")
 
     def _send(self, method: str, path: str, payload: dict[str, Any] | None = None) -> Response:
         import json
@@ -400,8 +390,7 @@ class OpenAIImages:
             )
         if 400 <= response.status < 500:
             raise ProviderRejected(
-                f"openai_images: the request was refused ({response.status}): "
-                f"{_body_hint(response)}"
+                f"openai_images: the request was refused ({response.status}): {_body_hint(response)}"
             )
         if response.status >= 500:
             raise AmbiguousOutcome(
@@ -413,8 +402,7 @@ class OpenAIImages:
             return response.json()
         except TransportError as exc:
             raise AmbiguousOutcome(
-                f"openai_images: the response could not be read ({redact(str(exc))}). It may "
-                f"have been billed.",
+                f"openai_images: the response could not be read ({redact(str(exc))}). It may have been billed.",
                 job_id=None,
             ) from exc
 
@@ -422,9 +410,7 @@ class OpenAIImages:
     def _decode_image(data: dict[str, Any]) -> bytes:
         items = data.get("data")
         if not isinstance(items, list) or not items:
-            raise ProviderRejected(
-                f"openai_images: the response carried no image: {redact(str(data))}"
-            )
+            raise ProviderRejected(f"openai_images: the response carried no image: {redact(str(data))}")
         encoded = items[0].get("b64_json") if isinstance(items[0], dict) else None
         if not isinstance(encoded, str) or not encoded:
             raise ProviderRejected(
@@ -433,9 +419,7 @@ class OpenAIImages:
                 "failure would be indistinguishable from the first having produced nothing."
             )
         if len(encoded) > MAX_FILE_BYTES * 2:
-            raise ProviderRejected(
-                f"openai_images: encoded image is {len(encoded)} characters, over the bound"
-            )
+            raise ProviderRejected(f"openai_images: encoded image is {len(encoded)} characters, over the bound")
         try:
             return base64.b64decode(encoded, validate=True)
         except (binascii.Error, ValueError) as exc:
@@ -446,8 +430,7 @@ class OpenAIImages:
         """Bound the returned image before anything decodes it."""
         if len(payload) > MAX_FILE_BYTES:
             raise ProviderRejected(
-                f"openai_images: returned {len(payload)} bytes, over the "
-                f"{MAX_FILE_BYTES}-byte limit"
+                f"openai_images: returned {len(payload)} bytes, over the {MAX_FILE_BYTES}-byte limit"
             )
         if not payload.startswith(PNG_SIGNATURE):
             raise ProviderRejected("openai_images: the returned image was not a PNG")
@@ -457,8 +440,7 @@ class OpenAIImages:
             raise ProviderRejected(f"openai_images: generated image rejected: {exc}") from exc
         if frames > 1:
             raise ProviderRejected(
-                f"openai_images: a source sprite must be a still image; this PNG declares "
-                f"{frames} frames"
+                f"openai_images: a source sprite must be a still image; this PNG declares {frames} frames"
             )
         return width, height
 
