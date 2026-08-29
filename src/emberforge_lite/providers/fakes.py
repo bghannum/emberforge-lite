@@ -137,7 +137,7 @@ def _png(width: int, height: int, seed: bytes) -> bytes:
 #: The geometry the live `POST /generate` smoke actually returned, measured
 #: rather than invented: a 486x256 sheet holding two views separated by one
 #: 47-column fully transparent gutter, with a narrow transparent margin at each
-#: edge. See docs/development/e2-live-smokes.md.
+#: edge. See docs/providers.md.
 #:
 #: The fake reproduces it because the shape *is* the finding. A fake that
 #: returned one tidy square would let a rehearsal of the crop pass while proving
@@ -536,7 +536,7 @@ class FakeOpenAIImages(FakeProvider):
     #: to remove by deriving rather than retyping.
     per_call: Decimal = OPENAI_USD_PER_IMAGE
     stages: tuple[Stage, ...] = ("source",)
-    #: PROJECT_SCOPE.md names gpt-image-2 as the initial target. The exact model
+    #: The provider guide names gpt-image-2 as the initial target. The exact model
     #: stays adapter configuration recorded in provenance, never a core field.
     model: str | None = "gpt-image-2"
 

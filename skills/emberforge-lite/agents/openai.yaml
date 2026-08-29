@@ -1,0 +1,31 @@
+# Emberforge Lite — OpenAI Codex agent configuration.
+#
+# A narrow agent that drives the local emberforge-lite CLI to review and organize
+# game-character assets. Offline by default; spending, deletion, and migration
+# require explicit per-action authorization.
+
+name: emberforge-lite
+display_name: Emberforge Lite
+description: >-
+  Review, organize, link, trim, and export local game-character assets through
+  the emberforge-lite CLI. Generation is offline unless the user authorizes spend.
+brand_color: "#38bdf8"
+
+default_prompt: "Use $emberforge-lite to review and organize my actor assets."
+
+instructions_file: ../SKILL.md
+
+tools:
+  - shell
+
+safety:
+  # Actions the agent must not take without explicit user authorization.
+  require_authorization:
+    - "emberforge-lite serve --allow-spend"
+    - "emberforge-lite ... --allow-spend"
+    - "emberforge-lite migrate"
+    - "asset deletion (DELETE /asset, delete buttons)"
+    - "generation submissions (/generate/*)"
+  forbidden:
+    - "installing software without the user running the command"
+    - "reading, printing, or writing provider API key values"

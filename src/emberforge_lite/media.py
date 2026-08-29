@@ -1,7 +1,7 @@
 """Bound untrusted media before anything decodes it, and hash it.
 
-Provider files and metadata are untrusted (`AGENTS.md`), and so is anything a
-user drops in. Every limit in the E1 design package §7 is enforced here using
+Provider files and metadata are untrusted (the threat model (docs/threat-model.md)), and so is anything a
+user drops in. Every limit in the threat model (docs/threat-model.md) is enforced here using
 only header and chunk-stream parsing: nothing in this module decodes pixel data,
 so a hostile file cannot exhaust memory on the way to being rejected.
 
@@ -14,7 +14,7 @@ import hashlib
 import struct
 from pathlib import Path
 
-# Limits from docs/design/e1-design-package.md §7.
+# Limits from docs/threat-model.md.
 MAX_FILE_BYTES = 16 * 1024 * 1024
 MAX_DECODED_BYTES = 64 * 1024 * 1024
 #: A spritesheet is long and thin: sixteen 256px frames in a horizontal strip is

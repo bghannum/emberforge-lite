@@ -2,7 +2,7 @@
 
 One small interface, for two reasons.
 
-**Tests must run with no network and no credentials.** `AGENTS.md` requires the
+**Tests must run with no network and no credentials.** the threat model (docs/threat-model.md) requires the
 whole deterministic suite to pass with both absent, so the adapters cannot call
 `urllib` directly or they could only ever be tested by talking to a vendor. A
 transport that can be substituted lets the real adapter -- the real request

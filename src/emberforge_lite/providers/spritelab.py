@@ -4,7 +4,7 @@ Talks to `https://spritelab.dev/api/v1` and satisfies the same `Provider`
 contract the fakes do, so the core never learns which of them it is holding.
 
 Everything here was verified against the real endpoint during the pre-E1 probe
-(`docs/development/spritelab-probe.md`), including the parts that were not what
+(`docs/providers.md`), including the parts that were not what
 the design package assumed:
 
 - **The output canvas equals the input canvas.** Framing is decided before

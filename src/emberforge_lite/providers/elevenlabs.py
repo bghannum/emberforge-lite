@@ -31,7 +31,7 @@ available is how a budget stops bounding anything.
 
 **Probed 2026-08-22.** Request and response shapes, the cost model, and the
 `character-cost` header are all observed rather than inferred. See
-docs/development/elevenlabs-probe.md. What remains unread is the terms, for
+docs/providers.md. What remains unread is the terms, for
 attribution and exclusivity, so both are still recorded as unknown.
 """
 
@@ -92,7 +92,7 @@ AUTH_HEADER = "xi-api-key"
 #:
 #: **Do not "correct" this back to 10 on the strength of the probe.** The probe is
 #: right about what was billed and this constant is not trying to be. See
-#: docs/development/elevenlabs-probe.md section 8.
+#: docs/providers.md.
 CREDITS_PER_SECOND = Decimal(40)
 
 #: 30,000 from the Starter plan plus 10,000 grandfathered from the free tier at

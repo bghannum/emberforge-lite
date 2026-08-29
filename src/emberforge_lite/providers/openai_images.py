@@ -70,7 +70,7 @@ UTC = timezone.utc
 BASE_URL = "https://api.openai.com/v1"
 KEY_ENV_VAR = "OPENAI_API_KEY"
 
-#: `PROJECT_SCOPE.md` names gpt-image-2 as the initial target. The exact model
+#: the provider guide (docs/providers.md) names gpt-image-2 as the initial target. The exact model
 #: stays adapter configuration recorded in provenance, never a core field.
 DEFAULT_MODEL = "gpt-image-2"
 
@@ -112,7 +112,7 @@ VALID_BACKGROUNDS = frozenset({"transparent", "opaque", "auto"})
 TRANSPARENT_CAPABLE_FORMATS = frozenset({"png", "webp"})
 
 #: Reviewed 2026-08-22. OpenAI assigns the user all its right, title, and
-#: interest in Output. See `PROJECT_SCOPE.md` D17 and `export.RIGHTS_TERMS`.
+#: interest in Output. See the provenance format (docs/provenance-format.md) and `export.RIGHTS_TERMS`.
 DEFAULT_ACCOUNT_RIGHTS = "openai_api_assigned_exclusive"
 DEFAULT_TERMS_REVIEWED = date(2026, 8, 22)
 

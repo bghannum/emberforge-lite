@@ -1,0 +1,62 @@
+{
+  "assets": {
+    "animations/ember_familiar_idle_preview.gif": {
+      "account_rights": "synthetic_demo_mit_licensed",
+      "attribution_required": false,
+      "attribution_text": null,
+      "generated_at": "2026-08-22T12:00:00+00:00",
+      "model": null,
+      "prompt": "a friendly ember familiar, pixel art",
+      "provider": "fake",
+      "reported_charge": {
+        "amount": "20",
+        "unit": "spritelab_credits"
+      },
+      "source": "generated",
+      "terms_reviewed_at": "2026-08-22",
+      "transforms": [],
+      "vendor": {
+        "note": "deterministic fake-provider output"
+      }
+    },
+    "sounds/ember_familiar_chime.wav": {
+      "account_rights": "synthetic_demo_mit_licensed",
+      "attribution_required": false,
+      "attribution_text": null,
+      "generated_at": "2026-08-22T12:00:00+00:00",
+      "model": null,
+      "prompt": "a friendly ember familiar, pixel art",
+      "provider": "fake",
+      "reported_charge": {
+        "amount": "32",
+        "unit": "spritelab_credits"
+      },
+      "source": "generated",
+      "terms_reviewed_at": "2026-08-22",
+      "transforms": [],
+      "vendor": {
+        "note": "deterministic fake-provider output"
+      }
+    },
+    "sprites/ember_familiar_source.png": {
+      "account_rights": "synthetic_demo_mit_licensed",
+      "attribution_required": false,
+      "attribution_text": null,
+      "generated_at": "2026-08-22T12:00:00+00:00",
+      "model": null,
+      "prompt": "a friendly ember familiar, pixel art",
+      "provider": "fake",
+      "reported_charge": {
+        "amount": "1",
+        "unit": "spritelab_credits"
+      },
+      "source": "generated",
+      "terms_reviewed_at": "2026-08-22",
+      "transforms": [],
+      "vendor": {
+        "note": "deterministic fake-provider output"
+      }
+    }
+  },
+  "schema_version": 1
+}

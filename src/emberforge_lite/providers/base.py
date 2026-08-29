@@ -4,7 +4,7 @@ Every provider — SpriteLab, OpenAI Images, ElevenLabs, and anything added late
 is reached through this one interface, so the core never learns which vendor it is
 talking to.
 
-Three properties are load bearing, and all three come from `PROJECT_SCOPE.md` §7.
+Three properties are load bearing, and all three come from the design constraints (docs/architecture.md).
 
 **Provider fields never reach core objects.** A vendor's response shape lives in
 `raw` and `provenance` and stops there. The moment `frame_count` or `sheet_b64`
@@ -108,7 +108,7 @@ class GenerationRequest:
 class Estimate:
     """A bounded maximum, and when its pricing was observed.
 
-    There is no unbounded variant. `PROJECT_SCOPE.md` §7 blocks a request with no
+    There is no unbounded variant. the design constraints (docs/architecture.md) blocks a request with no
     bounded maximum rather than submitting against an unenforceable budget, and a
     type that cannot express "unknown cost" is how that rule is kept.
     """
@@ -175,7 +175,7 @@ class JobStatus:
 class CandidateProvenance:
     """What every candidate must be able to say about where it came from.
 
-    `AGENTS.md` requires recording the provider, model, account-rights context,
+    the threat model (docs/threat-model.md) requires recording the provider, model, account-rights context,
     generation date, terms-review date, transforms, and attribution requirements.
     A free-form mapping cannot be checked for those, so they are fields, and the
     contract suite asserts every adapter fills them.
@@ -191,7 +191,7 @@ class CandidateProvenance:
     model: str | None
     generated_at: datetime
     #: What rights the generating account confers, e.g. "free_tier_non_exclusive".
-    #: See `PROJECT_SCOPE.md` D17.
+    #: See the provenance format (docs/provenance-format.md).
     account_rights: str
     terms_reviewed_at: date
     attribution_required: bool

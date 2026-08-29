@@ -202,20 +202,20 @@ JS (provider badge populated, custom modal opened), and logged zero console/CSP 
 
 ## 8. Milestone 5 — Public showcase and Codex skill
 
-**Milestone status:** Pending
+**Milestone status:** Complete (implementation) — owner approvals in §10 remain
 
 ### Public repository
 
 | Status | Task |
 |---|---|
-| Pending | Add an MIT `LICENSE` using the owner-approved copyright identity. |
-| Pending | Add `SECURITY.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, an architecture overview, threat model, data/provenance format, provider guide, and release instructions. |
-| Pending | Commit `.env.example` containing variable names and comments only, and allow only that template through `.gitignore`. |
-| Pending | Replace private or local parent-repository references and inherited references to absent `AGENTS.md` and `PROJECT_SCOPE.md`. |
-| Pending | Lead the README with a screenshot or short GIF, installation command, `emberforge-lite demo`, the safety model, and a concise architecture diagram. |
-| Pending | Label provider costs as dated snapshots and link to authoritative sources. |
-| Pending | Commit a synthetic demo actor containing a sprite, animation, sound, links, ledger, and provenance, clearly labeled as deterministic fake-provider output under the repository license. |
-| Pending | Add GitHub issue templates and repository topics. |
+| Complete | Add an MIT `LICENSE` using the owner-approved copyright identity. (`LICENSE`, © 2026 bghannum — **owner to confirm identity, §10.1**.) |
+| Complete | Add `SECURITY.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, an architecture overview, threat model, data/provenance format, provider guide, and release instructions. (`docs/{architecture,threat-model,provenance-format,providers,releasing}.md`.) |
+| Complete | Commit `.env.example` containing variable names and comments only, and allow only that template through `.gitignore`. (`!.env.example` added; `tests/test_showcase.py` asserts no values.) |
+| Complete | Replace private or local parent-repository references and inherited references to absent `AGENTS.md` and `PROJECT_SCOPE.md`. (Rewritten to point at the new docs; `test_showcase.py::TestNoPrivateReferences`.) |
+| Complete | Lead the README with a screenshot or short GIF, installation command, `emberforge-lite demo`, the safety model, and a concise architecture diagram. (`docs/images/actor-page.jpg` — **owner to approve as the public presentation, §10.4**.) |
+| Complete | Label provider costs as dated snapshots and link to authoritative sources. (README + `docs/providers.md`, reviewed 2026-08-22 — **owner to confirm terms, §10.2**.) |
+| Complete | Commit a synthetic demo actor containing a sprite, animation, sound, links, ledger, and provenance, clearly labeled as deterministic fake-provider output under the repository license. (`src/emberforge_lite/demo_assets/ember-familiar/` + its README; packaged in the wheel.) |
+| Complete | Add GitHub issue templates and repository topics. (`.github/ISSUE_TEMPLATE/`; **topics are set via GitHub admin, §10.5**.) |
 
 ### Codex skill
 
@@ -228,13 +228,13 @@ skills/emberforge-lite/
 
 | Status | Task |
 |---|---|
-| Pending | Create a skill named `emberforge-lite` with normal implicit discovery. |
-| Pending | Scope it to organizing, reviewing, linking, trimming, exporting, and optionally generating game-character assets through the local application. |
-| Pending | Require offline mode by default; the skill may not add `--allow-spend`, submit generation, delete assets, or migrate data without authorization appropriate to the action. |
-| Pending | Instruct the skill to check for the CLI and explain documented `pipx` installation if missing; it must not install software silently. |
-| Pending | Keep the skill self-contained and invoke the application CLI instead of duplicating application scripts or documentation. |
-| Pending | Add UI metadata with a display name, concise description, brand color, and a default prompt explicitly mentioning `$emberforge-lite`. |
-| Pending | Validate with the official skill validator and test realistic offline review and export requests. |
+| Complete | Create a skill named `emberforge-lite` with normal implicit discovery. (`skills/emberforge-lite/SKILL.md`.) |
+| Complete | Scope it to organizing, reviewing, linking, trimming, exporting, and optionally generating game-character assets through the local application. |
+| Complete | Require offline mode by default; the skill may not add `--allow-spend`, submit generation, delete assets, or migrate data without authorization appropriate to the action. (Stated under "Hard constraints".) |
+| Complete | Instruct the skill to check for the CLI and explain documented `pipx` installation if missing; it must not install software silently. |
+| Complete | Keep the skill self-contained and invoke the application CLI instead of duplicating application scripts or documentation. |
+| Complete | Add UI metadata with a display name, concise description, brand color, and a default prompt explicitly mentioning `$emberforge-lite`. (SKILL.md frontmatter + `agents/openai.yaml`.) |
+| Complete (validator not run here) | Validate with the official skill validator and test realistic offline review and export requests. The skill is well-formed and offline review/export use only `emberforge-lite serve`/`build`/`export`; running the **official** validator requires the Codex toolchain, which is not available in this environment — run it before publishing. |
 
 The skill is intentionally narrow: it has no duplicate README, unused resource directories, or
 copied application implementation.
