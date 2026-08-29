@@ -429,6 +429,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._validate_upload(tmp_path, ext)
             except (media.Rejected, ValueError) as exc:
                 logs.event("upload", actor=slug, operation="upload", outcome="rejected", error=str(exc))
+                # Remove the rejected temp file *before* answering, so a client
+                # that lists the directory the moment it sees the 400 never
+                # observes the leftover (the finally is only a crash backstop).
+                tmp_path.unlink(missing_ok=True)
                 self._respond(400, {"error": f"rejected: {exc}"})
                 return
             with storage.actor_lock(slug):
