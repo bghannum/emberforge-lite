@@ -319,6 +319,26 @@ STYLE = """
 """
 
 SCRIPT = """
+// The server injects <meta name="csrf-token"> into every page it serves and
+// requires the token on state-changing requests. Wrap fetch once so every
+// mutating call carries it; the browser adds the same-origin Origin header
+// on its own. When the page is opened directly from disk (no server, no meta)
+// the token is empty and the wrapper is a no-op.
+const CSRF_TOKEN = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+(function () {
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    init = init || {};
+    const method = (init.method || 'GET').toUpperCase();
+    if (method !== 'GET' && method !== 'HEAD' && CSRF_TOKEN) {
+      const headers = new Headers(init.headers || {});
+      if (!headers.has('X-CSRF-Token')) headers.set('X-CSRF-Token', CSRF_TOKEN);
+      init.headers = headers;
+    }
+    return nativeFetch(input, init);
+  };
+})();
+
 function setSpeed(imgId, slug, filename, factor) {
   const img = document.getElementById(imgId);
   const base = img.dataset.baseSrc;
@@ -427,7 +447,7 @@ async function trimSound(slug, sound, durationMs, linkTo) {
   const answer = prompt(`${hint}\nKeep which part? Enter start-end in ms (a new file is written; the original is kept):`,
                         `0-${durationMs || 1000}`);
   if (!answer) return;
-  const m = answer.trim().match(/^(\d+)\s*-\s*(\d+)$/);
+  const m = answer.trim().match(/^(\\d+)\\s*-\\s*(\\d+)$/);
   if (!m) { alert('Enter a range like 120-700'); return; }
   const res = await fetch('/trim', {
     method: 'POST',

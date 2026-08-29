@@ -4,6 +4,20 @@ asset management, and provider generation.
 
     python3 server.py [port] [--allow-spend]     # default port 8000
 
+Security model (Milestone 1):
+
+* Binds to loopback only, and rejects requests whose Host is not a loopback
+  name (a DNS-rebinding defense).
+* Serves ONLY generated pages (gallery.html, actor-<slug>.html) and actor
+  media under actors/<slug>/<category>/. Everything else -- credentials, Git
+  metadata, Python source, prompts and the spend ledger -- returns 404.
+* Every state-changing request (PUT/DELETE/POST) must carry a same-origin
+  Origin header and a matching X-CSRF-Token. The token is minted at startup
+  and injected into each served page.
+* Uploads are size-capped, validated before they are committed, and written
+  through a temporary file with an atomic rename, so a rejected or partial
+  upload leaves nothing behind.
+
 Uploads land in actors/<slug>/<category>/ (category picked from the file
 extension, never trusted from the client) and trigger an in-process rebuild.
 
@@ -16,10 +30,12 @@ estimated amount it was shown.
 from __future__ import annotations
 
 import argparse
-import io
 import json
+import os
+import secrets
+import tempfile
 import zipfile
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
@@ -35,7 +51,10 @@ from naming import sanitize_filename, sanitize_slug, unique_path
 ROOT = Path(__file__).parent
 ACTORS_DIR = ROOT / "actors"
 
-MAX_BODY_BYTES = 200 * 1024 * 1024  # 200MB uploads
+#: Upload ceiling. Overridable by the environment; the CLI gains a flag in
+#: Milestone 2. Lowered from an earlier 200MB: a review asset is small, and a
+#: high ceiling only widens what a mistaken or hostile upload can spend on disk.
+MAX_UPLOAD_BYTES = int(os.environ.get("EMBERFORGE_MAX_UPLOAD_BYTES", 64 * 1024 * 1024))
 MAX_JSON_BYTES = 1024 * 1024
 
 CATEGORY_BY_EXT = {
@@ -50,6 +69,62 @@ CATEGORY_BY_EXT = {
     ".m4a": "sounds",
 }
 
+#: Media the server will serve back over GET, and the content type for each.
+CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".ogg": "audio/ogg",
+    ".m4a": "audio/mp4",
+}
+
+#: The only actor subdirectories whose files are servable.
+SERVABLE_CATEGORIES = {"sprites", "animations", "sounds", "sheets"}
+
+#: Magic-byte signatures for the upload types media.py has no header inspector
+#: for. PNG/GIF/WAV/MP3 are validated by their real inspectors instead.
+_SNIFF = {
+    ".jpg": lambda d: d[:3] == b"\xff\xd8\xff",
+    ".jpeg": lambda d: d[:3] == b"\xff\xd8\xff",
+    ".webp": lambda d: d[:4] == b"RIFF" and d[8:12] == b"WEBP",
+    ".ogg": lambda d: d[:4] == b"OggS",
+    ".m4a": lambda d: d[4:8] == b"ftyp",
+}
+
+CSP = (
+    "default-src 'none'; "
+    "img-src 'self' data:; "
+    "media-src 'self'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "script-src 'self' 'unsafe-inline'; "
+    "connect-src 'self'; "
+    "base-uri 'none'; "
+    "form-action 'none'; "
+    "frame-ancestors 'none'"
+)
+
+# Set at startup by configure_security(). Loopback names and same-origin values
+# the guards accept, plus the per-process CSRF token embedded in served pages.
+CSRF_TOKEN = ""
+ALLOWED_HOSTS = {"127.0.0.1", "localhost", "::1", "[::1]"}
+ALLOWED_ORIGINS: set[str] = set()
+
+
+def configure_security(port: int) -> None:
+    """Mint the CSRF token and compute the same-origin allowlist for `port`."""
+    global CSRF_TOKEN, ALLOWED_ORIGINS
+    CSRF_TOKEN = secrets.token_urlsafe(32)
+    ALLOWED_ORIGINS = {
+        f"http://127.0.0.1:{port}",
+        f"http://localhost:{port}",
+        f"http://[::1]:{port}",
+    }
+
 
 def sheet_for(actor_dir: Path, gif_name: str) -> Path | None:
     """The spritesheet a generated preview gif came with, if any."""
@@ -60,19 +135,59 @@ def sheet_for(actor_dir: Path, gif_name: str) -> Path | None:
     return candidate if candidate.is_file() else None
 
 
-class Handler(SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=str(ROOT), **kwargs)
+class Handler(BaseHTTPRequestHandler):
+    server_version = "emberforge-lite"
+
+    # -- Request guards ---------------------------------------------------
+
+    def _host_ok(self) -> bool:
+        """Reject a Host header that is not a loopback name (rebinding defense)."""
+        host = self.headers.get("Host", "")
+        if not host:
+            return True
+        hostname = host.rsplit(":", 1)[0] if not host.endswith("]") else host
+        return hostname in ALLOWED_HOSTS
+
+    def _mutation_ok(self) -> bool:
+        """A state-changing request needs a same-origin Origin and CSRF token."""
+        origin = self.headers.get("Origin")
+        if origin is None or origin not in ALLOWED_ORIGINS:
+            return False
+        token = self.headers.get("X-CSRF-Token", "")
+        return bool(CSRF_TOKEN) and secrets.compare_digest(token, CSRF_TOKEN)
+
+    def _reject_bad_host(self) -> bool:
+        if self._host_ok():
+            return False
+        self._respond(400, {"error": "bad host header"})
+        return True
+
+    def _reject_unguarded_mutation(self) -> bool:
+        if self._mutation_ok():
+            return False
+        self._respond(403, {"error": "missing or invalid Origin / CSRF token"})
+        return True
 
     # -- GET -------------------------------------------------------------
 
     def do_GET(self):
+        if self._reject_bad_host():
+            return
         parsed = urlsplit(self.path)
         path = parsed.path
         if path == "/":
             self.send_response(302)
+            self._security_headers()
             self.send_header("Location", "/gallery.html")
             self.end_headers()
+            return
+        if path == "/favicon.ico":
+            self.send_response(204)
+            self._security_headers()
+            self.end_headers()
+            return
+        if path == "/providers":
+            self._respond(200, generate.provider_status())
             return
         if path.startswith("/speed/"):
             self._handle_speed(path, parsed.query)
@@ -80,20 +195,79 @@ class Handler(SimpleHTTPRequestHandler):
         if path.startswith("/export/"):
             self._handle_export(path)
             return
-        if path == "/providers":
-            self._respond(200, generate.provider_status())
-            return
-        if path == "/favicon.ico":
-            self.send_response(204)
-            self.end_headers()
-            return
         if path.startswith("/job/"):
             self._guard(self._handle_job, path)
             return
         if path.startswith("/jobs/"):
             self._guard(self._handle_jobs, path)
             return
-        super().do_GET()
+        if path == "/gallery.html":
+            self._serve_page(ROOT / "gallery.html")
+            return
+        if path.startswith("/actor-") and path.endswith(".html"):
+            self._serve_actor_page(path)
+            return
+        if path.startswith("/actors/"):
+            self._serve_media(parsed.path)
+            return
+        self._respond(404, {"error": "not found"})
+
+    def _serve_actor_page(self, path: str) -> None:
+        stem = path[len("/") :][: -len(".html")]  # "actor-<slug>"
+        slug = sanitize_slug(stem[len("actor-") :])
+        if not slug:
+            self._respond(404, {"error": "not found"})
+            return
+        self._serve_page(ROOT / f"actor-{slug}.html")
+
+    def _serve_page(self, file_path: Path) -> None:
+        safe = self._resolved_under(ROOT, file_path)
+        if safe is None or not safe.is_file():
+            self._respond(404, {"error": "not found"})
+            return
+        html_text = safe.read_text()
+        # Inject the per-process CSRF token so the page's fetches can echo it.
+        meta = f'<meta name="csrf-token" content="{CSRF_TOKEN}">'
+        if "</head>" in html_text:
+            html_text = html_text.replace("</head>", meta + "</head>", 1)
+        body = html_text.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self._security_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _serve_media(self, path: str) -> None:
+        parts = [unquote(p) for p in path.strip("/").split("/")]
+        if len(parts) != 4 or parts[0] != "actors":
+            self._respond(404, {"error": "not found"})
+            return
+        slug = sanitize_slug(parts[1])
+        category = parts[2]
+        filename = sanitize_filename(parts[3])
+        ext = Path(filename).suffix.lower()
+        if not slug or category not in SERVABLE_CATEGORIES or not filename or ext not in CONTENT_TYPES:
+            self._respond(404, {"error": "not found"})
+            return
+        candidate = ACTORS_DIR / slug / category / filename
+        safe = self._resolved_under(ACTORS_DIR, candidate)
+        if safe is None or not safe.is_file():
+            self._respond(404, {"error": "not found"})
+            return
+        self._send_bytes(safe.read_bytes(), CONTENT_TYPES[ext])
+
+    @staticmethod
+    def _resolved_under(root: Path, candidate: Path) -> Path | None:
+        """Resolve `candidate` and return it only if it stays under `root`."""
+        try:
+            resolved = media.resolve_within(root, candidate)
+        except media.Rejected:
+            return None
+        if resolved.is_symlink():
+            return None
+        return resolved
 
     def _handle_speed(self, path: str, query: str) -> None:
         parts = [unquote(p) for p in path.strip("/").split("/")]
@@ -127,16 +301,28 @@ class Handler(SimpleHTTPRequestHandler):
         if not slug or not actor_dir.is_dir():
             self._respond(404, {"error": "no such actor"})
             return
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            for file_path in sorted(actor_dir.rglob("*")):
-                if file_path.is_file():
-                    zf.write(file_path, arcname=f"{slug}/{file_path.relative_to(actor_dir)}")
-        self._send_bytes(
-            buf.getvalue(),
-            "application/zip",
-            extra={"Content-Disposition": f'attachment; filename="{slug}-export.zip"'},
-        )
+        # Build the archive in a temporary file and stream it, rather than
+        # holding the whole ZIP in memory.
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+        try:
+            with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zf:
+                for file_path in sorted(actor_dir.rglob("*")):
+                    if file_path.is_file():
+                        zf.write(file_path, arcname=f"{slug}/{file_path.relative_to(actor_dir)}")
+            tmp.close()
+            size = os.path.getsize(tmp.name)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Length", str(size))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Disposition", f'attachment; filename="{slug}-export.zip"')
+            self._security_headers()
+            self.end_headers()
+            with open(tmp.name, "rb") as fh:
+                while chunk := fh.read(1024 * 1024):
+                    self.wfile.write(chunk)
+        finally:
+            os.unlink(tmp.name)
 
     def _handle_job(self, path: str) -> None:
         parts = [unquote(p) for p in path.strip("/").split("/")]
@@ -160,6 +346,8 @@ class Handler(SimpleHTTPRequestHandler):
     # -- PUT (upload) -----------------------------------------------------
 
     def do_PUT(self):
+        if self._reject_bad_host() or self._reject_unguarded_mutation():
+            return
         parts = [unquote(p) for p in self.path.strip("/").split("/")]
         if len(parts) != 3 or parts[0] != "upload":
             self._respond(404, {"error": "not found"})
@@ -182,15 +370,34 @@ class Handler(SimpleHTTPRequestHandler):
         if length <= 0:
             self._respond(400, {"error": "empty body"})
             return
-        if length > MAX_BODY_BYTES:
+        if length > MAX_UPLOAD_BYTES:
             self._respond(413, {"error": "file too large"})
             return
         data = self.rfile.read(length)
+        if len(data) > MAX_UPLOAD_BYTES:
+            self._respond(413, {"error": "file too large"})
+            return
 
         target_dir = ACTORS_DIR / slug / category
         target_dir.mkdir(parents=True, exist_ok=True)
-        target_path = unique_path(target_dir, filename)
-        target_path.write_bytes(data)
+
+        # Write to a temp file in the destination dir, validate it, then commit
+        # with an atomic rename. A rejected upload never becomes a real file.
+        fd, tmp_name = tempfile.mkstemp(dir=target_dir, suffix=ext)
+        tmp_path = Path(tmp_name)
+        try:
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(data)
+            try:
+                self._validate_upload(tmp_path, ext)
+            except (media.Rejected, ValueError) as exc:
+                self._respond(400, {"error": f"rejected: {exc}"})
+                return
+            target_path = unique_path(target_dir, filename)
+            os.replace(tmp_path, target_path)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
 
         actor_count = build.build()
         self._respond(
@@ -198,9 +405,25 @@ class Handler(SimpleHTTPRequestHandler):
             {"slug": slug, "category": category, "filename": target_path.name, "actors": actor_count},
         )
 
+    @staticmethod
+    def _validate_upload(path: Path, ext: str) -> None:
+        """Raise media.Rejected / ValueError unless the bytes match the extension."""
+        if ext in (".png", ".gif"):
+            media.validate(path)
+            return
+        data = path.read_bytes()
+        if ext in (".wav", ".mp3"):
+            media.inspect_audio(data)
+            return
+        sniff = _SNIFF.get(ext)
+        if sniff is None or not sniff(data):
+            raise media.Rejected(f"content does not match a {ext} file")
+
     # -- DELETE -----------------------------------------------------------
 
     def do_DELETE(self):
+        if self._reject_bad_host() or self._reject_unguarded_mutation():
+            return
         parts = [unquote(p) for p in self.path.strip("/").split("/")]
         if len(parts) != 3 or parts[0] != "asset":
             self._respond(404, {"error": "not found"})
@@ -239,6 +462,8 @@ class Handler(SimpleHTTPRequestHandler):
     # -- POST -------------------------------------------------------------
 
     def do_POST(self):
+        if self._reject_bad_host() or self._reject_unguarded_mutation():
+            return
         path = urlsplit(self.path).path
         if path == "/link":
             self._handle_link()
@@ -405,11 +630,18 @@ class Handler(SimpleHTTPRequestHandler):
             raise ValueError("expected a JSON object")
         return payload
 
+    def _security_headers(self) -> None:
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Content-Security-Policy", CSP)
+
     def _send_bytes(self, data: bytes, content_type: str, extra: dict[str, str] | None = None) -> None:
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
+        self._security_headers()
         for name, value in (extra or {}).items():
             self.send_header(name, value)
         self.end_headers()
@@ -420,6 +652,8 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self._security_headers()
         self.end_headers()
         self.wfile.write(body)
 
@@ -448,6 +682,7 @@ def main() -> None:
         print("offline - fake providers (start with --allow-spend to use the real APIs)", flush=True)
 
     build.build()
+    configure_security(args.port)
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     print(f"Serving emberforge-lite on http://127.0.0.1:{args.port}/", flush=True)
     try:

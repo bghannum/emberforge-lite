@@ -13,3 +13,13 @@ actors/*
 __pycache__/
 *.pyc
 .DS_Store
+
+# Development environment and tooling artifacts
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/

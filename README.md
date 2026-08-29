@@ -9,6 +9,13 @@ It is one folder per actor on disk, one static page per actor, and a
 stdlib-only Python server that reads and writes that folder. No database, no
 framework, no `pip install`. Python 3.9+.
 
+## Project status
+
+Emberforge Lite is currently a local-first prototype being prepared for its first public release.
+The approved security, packaging, reliability, showcase, and release work is tracked in the
+[v0.1 productionization plan](docs/productionization-plan.md). Hosted multi-user operation is not
+part of that plan.
+
 ## Quick start
 
 ```bash
