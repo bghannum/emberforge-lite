@@ -1,0 +1,15 @@
+# Generated pages
+gallery.html
+actor-*.html
+
+# Credentials (SPRITELAB_API_KEY, OPENAI_API_KEY, ELEVENLABS_API_KEY)
+.env
+.env.*
+
+# Actor assets: private art, paid provider output, prompts and spend ledger.
+# The folder itself is kept so the layout is discoverable.
+actors/*
+!actors/.gitkeep
+__pycache__/
+*.pyc
+.DS_Store
