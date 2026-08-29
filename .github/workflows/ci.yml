@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-test:
+    name: Lint & test (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Ruff format check
+        run: ruff format --check .
+      - name: Ruff lint
+        run: ruff check .
+      - name: Tests with coverage
+        run: pytest --cov --cov-report=term-missing --cov-report=json
+      - name: Enforce >=85% line coverage
+        run: |
+          python - <<'PY'
+          import json, sys
+          t = json.load(open("coverage.json"))["totals"]
+          pct = 100 * t["covered_lines"] / t["num_statements"]
+          print(f"line coverage: {pct:.2f}%  (missed {t['missing_lines']} of {t['num_statements']})")
+          sys.exit(0 if pct >= 85 else 1)
+          PY
+      - name: Branch coverage of security-critical modules
+        run: |
+          python - <<'PY'
+          import json, sys
+          data = json.load(open("coverage.json"))
+          # security (server), storage, spend confirmation (generate), redaction (transport).
+          floors = {"server.py": 80, "storage.py": 80, "generate.py": 75, "transport.py": 100}
+          bad = []
+          for path, fd in data["files"].items():
+              for name, floor in floors.items():
+                  if path.endswith(name):
+                      s = fd["summary"]
+                      br = 100 * s["covered_branches"] / s["num_branches"] if s["num_branches"] else 100.0
+                      print(f"{name}: branch {br:.1f}% (floor {floor}%)")
+                      if br < floor:
+                          bad.append(name)
+          sys.exit(1 if bad else 0)
+          PY
+
+  macos-smoke:
+    name: macOS smoke (Python ${{ matrix.python }})
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Tests
+        run: pytest -q
+      - name: CLI smoke
+        run: emberforge-lite --version
+
+  build-and-verify:
+    name: Build, clean-install, offline & secret checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Build wheel and sdist
+        # pyproject-build (not `python -m build`): the deprecated root build.py
+        # shadows the PyPA build tool when the cwd is on sys.path.
+        run: pyproject-build
+      - name: Clean pipx-style install smoke test
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install dist/emberforge_lite-*.whl
+          /tmp/clean/bin/emberforge-lite --version
+          # demo synthesizes and serves offline; here we just prove it installs
+          # and the offline actor materializes with no network or keys.
+          /tmp/clean/bin/python - <<'PY'
+          import tempfile, pathlib
+          from emberforge_lite.demo import synthesize_demo_actor
+          from emberforge_lite.config import Paths
+          p = Paths(pathlib.Path(tempfile.mkdtemp())).ensure()
+          synthesize_demo_actor(p.actors)
+          print("offline demo actor OK")
+          PY
+      - name: Offline, no-credential provider-contract suite
+        run: pytest tests/test_provider_contracts.py -q
+      - name: Generated-artifact consistency
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from emberforge_lite.demo import synthesize_demo_actor
+          import shutil
+          dest = Path("src/emberforge_lite/demo_assets/ember-familiar")
+          shutil.rmtree(dest)
+          synthesize_demo_actor(Path("src/emberforge_lite/demo_assets"))
+          PY
+          git diff --exit-code -- src/emberforge_lite/demo_assets
+      - name: Secret-pattern scan
+        run: |
+          python - <<'PY'
+          import re, subprocess, sys
+          files = subprocess.check_output(["git", "ls-files"]).decode().split()
+          patterns = [
+              re.compile(r"sk-[A-Za-z0-9]{20,}"),         # OpenAI-style keys
+              re.compile(r"xi-[A-Za-z0-9]{20,}"),         # ElevenLabs-style
+              re.compile(r"(?i)bearer\s+[A-Za-z0-9._\-]{20,}"),
+          ]
+          allow = {".env.example"}
+          hits = []
+          for f in files:
+              if f in allow or f.startswith(".git"):
+                  continue
+              try:
+                  text = open(f, encoding="utf-8", errors="ignore").read()
+              except OSError:
+                  continue
+              for p in patterns:
+                  if p.search(text):
+                      hits.append(f)
+                      break
+          if hits:
+              print("possible secrets in:", hits)
+              sys.exit(1)
+          print("no secret patterns found")
+          PY
+      - name: Validate the Codex skill is well-formed
+        run: pytest tests/test_showcase.py::TestCodexSkill -q

@@ -1,33 +1,25 @@
 #!/usr/bin/env python3
-"""Link a sound to an animation for one actor, then re-run build.py.
+"""DEPRECATED root launcher. Use the installed CLI instead:
 
-    python3 link.py <actor-slug> <animation-filename> <sound-filename>
+    emberforge-lite link ACTOR ANIMATION SOUND [--data-dir PATH]
 
-Both filenames must already exist in actors/<slug>/animations/ and
-actors/<slug>/sounds/. Writes/updates actors/<slug>/links.json.
+Retained through v0.1.x, removed in v0.2.0.
 """
+
+from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-from linking import add_link
-
-ROOT = Path(__file__).parent
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 
-def main() -> None:
-    if len(sys.argv) != 4:
-        print(__doc__)
-        raise SystemExit(1)
+def main() -> int:
+    print("warning: `python3 link.py` is deprecated; use `emberforge-lite link`.", file=sys.stderr)
+    from emberforge_lite.cli import main as cli_main
 
-    slug, anim_name, sound_name = sys.argv[1:4]
-    try:
-        add_link(ROOT / "actors", slug, anim_name, sound_name)
-    except FileNotFoundError as e:
-        raise SystemExit(str(e))
-
-    print(f"Linked {sound_name} -> {anim_name} for {slug}. Run build.py to see it.")
+    return cli_main(["link", *sys.argv[1:], "--data-dir", str(Path(__file__).parent)])
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

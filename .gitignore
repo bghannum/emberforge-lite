@@ -5,6 +5,7 @@ actor-*.html
 # Credentials (SPRITELAB_API_KEY, OPENAI_API_KEY, ELEVENLABS_API_KEY)
 .env
 .env.*
+!.env.example
 
 # Actor assets: private art, paid provider output, prompts and spend ledger.
 # The folder itself is kept so the layout is discoverable.
@@ -13,3 +14,16 @@ actors/*
 __pycache__/
 *.pyc
 .DS_Store
+
+# Development environment and tooling artifacts
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Deprecated root launchers write here when pointed at the repo
+/site/
