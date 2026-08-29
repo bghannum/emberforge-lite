@@ -178,7 +178,10 @@ class UrllibTransport:
                 )
         except urllib.error.HTTPError as exc:
             # An HTTP error is a real answer. The adapter decides what it means.
-            return Response(status=exc.code, body=self._read_bounded(exc), headers=dict(exc.headers or {}))
+            # HTTPError is itself a closeable file object; close it so the socket
+            # is released deterministically rather than leaked under error load.
+            with exc:
+                return Response(status=exc.code, body=self._read_bounded(exc), headers=dict(exc.headers or {}))
         except urllib.error.URLError as exc:
             raise TransportError(redact(f"could not reach {url}: {exc.reason}")) from exc
         except TimeoutError as exc:

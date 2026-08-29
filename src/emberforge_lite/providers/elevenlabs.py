@@ -74,6 +74,11 @@ KEY_ENV_VAR = "ELEVENLABS_API_KEY"
 #: ElevenLabs authenticates with its own header, not a bearer token.
 AUTH_HEADER = "xi-api-key"
 
+#: Response headers that must never reach provenance (dropped, not redacted:
+#: a redacted credential still records that one was present). Mirrors the
+#: OpenAI/SpriteLab adapters so the three cannot drift.
+_SECRET_HEADERS = frozenset({"authorization", AUTH_HEADER, "set-cookie", "cookie"})
+
 #: **The published rate, deliberately chosen over our own measurement.**
 #:
 #: ElevenLabs documents 40 credits per second of requested duration, and its
@@ -353,7 +358,7 @@ class ElevenLabs:
             **{
                 f"header.{name.lower()}": value
                 for name, value in response.headers.items()
-                if name.lower() not in ("authorization", AUTH_HEADER)
+                if name.lower() not in _SECRET_HEADERS
             },
         }
         self._results[job_id] = (request, audio, vendor | {"media_kind": audio_kind(audio)})
