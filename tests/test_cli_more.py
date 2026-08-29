@@ -16,6 +16,19 @@ from emberforge_lite.providers.spritelab import SpriteLab
 from emberforge_lite.providers.transport import Response
 
 
+class FakeTransport:
+    """Returns queued canned responses in order (no network)."""
+
+    def __init__(self, *responses):
+        self._responses = list(responses)
+
+    def send(self, method, url, *, headers, body=None, timeout=60):
+        item = self._responses.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
 class TestCliMigrate:
     def test_migrate_success(self, tmp_path, capsys):
         src = tmp_path / "old"
@@ -62,16 +75,12 @@ class TestSpriteLabMore:
                 }
             ).encode(),
         )
-        from tests.test_provider_contracts import FakeTransport
-
         p = SpriteLab(key="t", transport=FakeTransport(submit, with_gif))
         r = p.submit(GenerationRequest(stage="animation", prompt="x", source_png=self._fit(), frames=8))
         gif = p.preview_gif(r.job_id)
         assert gif[:6] in (b"GIF87a", b"GIF89a")
 
     def test_estimate_rejects_zero_batch(self):
-        from tests.test_provider_contracts import FakeTransport
-
         p = SpriteLab(key="t", transport=FakeTransport())
         with pytest.raises(ProviderRejected):
             p.estimate(
