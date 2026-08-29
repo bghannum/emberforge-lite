@@ -24,17 +24,52 @@ shape of the real thing.
 
 The per-call costs shown in the UI are **dated snapshots**, not live quotes, and
 each generate call requires you to echo the exact estimate you were shown before
-anything is submitted. Verify current pricing and terms with the provider before
-enabling spend:
+anything is submitted.
 
-- SpriteLab — <https://www.spritelab.io> (pricing and API terms)
-- OpenAI Images — <https://openai.com/api/pricing/> and the OpenAI usage terms
-- ElevenLabs — <https://elevenlabs.io/pricing> and the ElevenLabs terms
+| Provider | Snapshot | Reviewed |
+|---|---|---|
+| SpriteLab animation | 20 credits | 2026-08-21 |
+| SpriteLab source | 1 credit (epic) / 6 (mythic) | 2026-08-21 |
+| OpenAI `gpt-image-2` source | $0.006 (low, 1024×1024) | 2026-08-22 |
+| ElevenLabs sound | 40 credits per second requested (800 ms → 32) | 2026-08-22 |
 
-> Snapshots reviewed 2026-08-22. Rights context and attribution requirements are
-> recorded per asset in [provenance-format.md](provenance-format.md) exactly as
-> the provider reports them; confirming that they match the provider's current
-> terms is the operator's responsibility.
+## Rights and terms (as reviewed)
+
+> **These are notes from a review on the dates below, not a legal statement, and
+> not our call to make.** Provider terms change, differ by plan, and are the
+> provider's to define. Before you rely on any of this, read each provider's own
+> current terms — they are authoritative, we are not:
+>
+> - SpriteLab — <https://www.spritelab.io> (pricing and API/output terms)
+> - OpenAI — <https://openai.com/policies/> and <https://openai.com/api/pricing/>
+> - ElevenLabs — <https://elevenlabs.io/terms> and <https://elevenlabs.io/pricing>
+
+What the review found (recorded per asset in
+[provenance-format.md](provenance-format.md), and configured on each adapter
+rather than inferred):
+
+- **SpriteLab** (reviewed 2026-08-21 against terms last revised 2026-06-09,
+  §"Your content and generated sprites"). SpriteLab grants no copyright at any
+  tier; commercial use is permitted; no attribution is required. On the **free**
+  plan, output is public and non-exclusive (anyone may use it, and SpriteLab may
+  display it in its galleries/marketplace); on the **paid** plan, output is
+  private by default, SpriteLab claims no ownership, and community sharing is a
+  reversible per-sprite choice. A failed job refunds its credits automatically.
+- **OpenAI Images** (reviewed 2026-08-22). The terms assign the user all of
+  OpenAI's interest in the Output ("you own the Output") and the user keeps the
+  Input; recorded as exclusive in the sense our provenance tracks. Two things the
+  reviewed text does not settle — whether OpenAI may itself display or reuse the
+  output, and whether attribution is required — are recorded **open**, not
+  resolved favorably, so a downstream reader sees the gap.
+- **ElevenLabs** (reviewed 2026-08-22, from the paid subscription agreement).
+  Every paid tier conveys ownership of the generated files with a full commercial
+  licence and no attribution requirement. A key scoped narrowly to Sound Effects
+  cannot read `/user/subscription`; that is expected, and the estimate prices
+  every generation as overage rather than widening the key's permissions.
+
+The dates above are when a human last read the terms. Emberforge Lite records the
+review date with each asset and never treats an old review as a current
+guarantee; re-read the provider's terms whenever you are unsure.
 
 ## Adding or updating an adapter
 

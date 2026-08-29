@@ -77,10 +77,12 @@ Nothing is spent without two deliberate steps:
 | Sound | ElevenLabs sound effects | 40 credits/s requested (800 ms → 32) |
 | Source sprite | SpriteLab `/generate` · OpenAI `gpt-image-2` | 1 credit (epic) / 6 (mythic) · $0.006 |
 
-\* Dated snapshots (reviewed 2026-08-22), not live quotes — see
-[docs/providers.md](docs/providers.md) for sources. Credentials are read only
-from the environment or the `--env-file` you name; they are never auto-discovered,
-never logged, and never reach the browser. See [`.env.example`](.env.example).
+\* Dated snapshots (reviewed 2026-08-21/22), not live quotes. Pricing and terms
+are the provider's to define and change — read each provider's own current terms,
+they are authoritative; see [docs/providers.md](docs/providers.md) for what was
+reviewed and the links. Credentials are read only from the environment or the
+`--env-file` you name; they are never auto-discovered, never logged, and never
+reach the browser. See [`.env.example`](.env.example).
 
 The server binds to loopback only, rejects non-loopback `Host` headers, requires
 a same-origin request with a CSRF token on every mutation, sends a strict

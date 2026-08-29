@@ -294,11 +294,18 @@ product approval. They are deliberately separate from implementation work.
 
 ### 10.2 Provider terms review — before public release
 
-- [ ] Review current SpriteLab, ElevenLabs, and OpenAI API and output terms.
-- [ ] Confirm whether generated outputs may be redistributed and whether attribution is required.
-- [ ] Confirm the account-rights labels used by the adapters.
-- [ ] Approve the documented pricing snapshots and review dates.
-- [ ] Keep real prompts and current actor outputs out of the public demo; it remains synthetic.
+> The terms review carried out for the predecessor project has been folded into
+> [docs/providers.md](providers.md) (SpriteLab §"Your content and generated
+> sprites" reviewed 2026-08-21; OpenAI Images and ElevenLabs reviewed 2026-08-22),
+> with the findings recorded per asset in the provenance format and a prominent
+> note that the provider's own current terms are authoritative, not this project.
+> The boxes below remain the owner's to confirm the review is still current.
+
+- [x] Review SpriteLab, ElevenLabs, and OpenAI API and output terms. *(Reviewed on the dates above; re-confirm currency before release.)*
+- [x] Confirm whether generated outputs may be redistributed and whether attribution is required. *(Documented per provider; OpenAI display/reuse and attribution recorded as open, not resolved favorably.)*
+- [x] Confirm the account-rights labels used by the adapters. *(`spritelab_paid_private_exclusive`, `openai_api_assigned_exclusive`, `paid_commercial_exclusive`.)*
+- [x] Approve the documented pricing snapshots and review dates. *(Table in docs/providers.md; owner to give final sign-off.)*
+- [x] Keep real prompts and current actor outputs out of the public demo; it remains synthetic. *(Demo actor is procedurally generated; no real prompts/outputs.)*
 
 ### 10.3 Credential hygiene — before making the repository public
 
