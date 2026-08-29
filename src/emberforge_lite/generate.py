@@ -19,6 +19,7 @@ interrupted.
 from __future__ import annotations
 
 import json
+import os
 import threading
 import uuid
 from dataclasses import dataclass
@@ -27,9 +28,9 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from emberforge_lite import build, credentials, gifspeed, media, pngtools
+from emberforge_lite import build, credentials, gifspeed, media, pngtools, provenance, storage
 from emberforge_lite.linking import add_link
-from emberforge_lite.naming import asset_stem, sanitize_filename, sanitize_slug, unique_path
+from emberforge_lite.naming import asset_stem, sanitize_filename, sanitize_slug
 from emberforge_lite.providers.base import (
     AmbiguousOutcome,
     AuthenticationFailed,
@@ -70,7 +71,6 @@ RESUBMIT_GUARD_SECONDS = 10
 PROVIDERS: dict[str, Any] = {}
 LIVE = False
 
-_ledger_lock = threading.Lock()
 _job_locks: dict[tuple[str, str], threading.Lock] = {}
 _job_locks_guard = threading.Lock()
 _fit_cache: dict[tuple[str, float], tuple[bytes, dict[str, Any]]] = {}
@@ -333,35 +333,66 @@ def _display(unit: str, amount: str) -> str:
 # -- Ledger ------------------------------------------------------------------
 
 
+class LedgerError(Exception):
+    """The append-only ledger holds a malformed record before its final line."""
+
+
 def _ledger_path(slug: str) -> Path:
     return _actor_dir(slug) / LEDGER_NAME
 
 
 def read_ledger(slug: str) -> list[dict[str, Any]]:
+    """Parse the append-only ledger.
+
+    A malformed line is tolerated only if it is the very last one -- that is the
+    signature of a write interrupted mid-line. Any earlier malformed record means
+    real corruption and is reported with the actor, file, and line number rather
+    than silently dropped.
+    """
     path = _ledger_path(slug)
     if not path.is_file():
         return []
-    records = []
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if line:
-            try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
+    lines = path.read_text().splitlines()
+    records: list[dict[str, Any]] = []
+    for lineno, raw in enumerate(lines, start=1):
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError as exc:
+            if lineno == len(lines):
+                # Interrupted final write: tolerate and stop.
+                break
+            raise LedgerError(
+                f"{slug}: malformed ledger record at {path}:{lineno}: {exc}"
+            ) from None
     return records
 
 
 def _append(slug: str, record: dict[str, Any]) -> None:
     path = _ledger_path(slug)
-    with _ledger_lock:
+    with storage.actor_lock(slug):
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a") as fh:
             fh.write(json.dumps(record, sort_keys=True) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _record_provenance(actor_dir: Path, rel_path: str, cand: Any) -> None:
+    """Persist a generated candidate's provenance to provenance.json."""
+    provenance.record_generated(
+        actor_dir,
+        rel_path,
+        cand.provenance,
+        reported_charge=_amount(cand.reported_charge) if cand.reported_charge is not None else None,
+        charge_unit=cand.charge_unit,
+    )
 
 
 def _record(prepared: Prepared, event: str, est: dict[str, Any], **fields: Any) -> dict[str, Any]:
@@ -427,11 +458,8 @@ def check_confirmation(est: dict[str, Any], confirm_amount: Any) -> None:
 
 
 def _write(actor_dir: Path, category: str, filename: str, data: bytes) -> Path:
-    target_dir = actor_dir / category
-    target_dir.mkdir(parents=True, exist_ok=True)
-    path = unique_path(target_dir, filename)
-    path.write_bytes(data)
-    return path
+    # Reserve a non-colliding name and write it atomically under the actor lock.
+    return storage.reserve_and_write(actor_dir / category, filename, data, slug=actor_dir.name)
 
 
 def run_sync(slug: str, kind: str, params: dict[str, Any], confirm_amount: Any) -> dict[str, Any]:
@@ -474,6 +502,7 @@ def run_sync(slug: str, kind: str, params: dict[str, Any], confirm_amount: Any) 
     if kind == "sound":
         path = _write(actor_dir, "sounds", output_name(prepared, cand.media_kind), cand.media)
         outputs["sound"] = path.name
+        category = "sounds"
         link_to = prepared.settings.get("link_to")
         if link_to:
             add_link(ACTORS_DIR, actor_dir.name, link_to, path.name)
@@ -481,6 +510,9 @@ def run_sync(slug: str, kind: str, params: dict[str, Any], confirm_amount: Any) 
     else:
         path = _write(actor_dir, "sprites", output_name(prepared), cand.media)
         outputs["sprite"] = path.name
+        category = "sprites"
+
+    _record_provenance(actor_dir, f"{category}/{path.name}", cand)
 
     _append(
         slug,
@@ -515,25 +547,29 @@ def submit_animation(slug: str, params: dict[str, Any], confirm_amount: Any) -> 
     check_confirmation(est, confirm_amount)
     prepared = prepare(slug, "animation", params)
 
-    recent = [r for r in open_jobs(slug)]
-    if recent:
-        last = datetime.fromisoformat(recent[-1]["ts"])
-        age = (datetime.now(timezone.utc) - last).total_seconds()
-        if age < RESUBMIT_GUARD_SECONDS:
-            raise GenerateError(409, "an animation was submitted a moment ago; wait for it", open=recent)
+    # The whole reservation -- check for a just-submitted job, submit, record --
+    # runs under the actor lock so two confirmations arriving together cannot
+    # both pass the guard and produce two paid submissions.
+    with storage.actor_lock(_actor_dir(slug).name):
+        recent = list(open_jobs(slug))
+        if recent:
+            last = datetime.fromisoformat(recent[-1]["ts"])
+            age = (datetime.now(timezone.utc) - last).total_seconds()
+            if age < RESUBMIT_GUARD_SECONDS:
+                raise GenerateError(409, "an animation was submitted a moment ago; wait for it", open=recent)
 
-    submitted = _record(prepared, "submitted", est, job_id=None)
-    try:
-        receipt = prepared.provider.submit(prepared.request)
-    except ProviderError as exc:
-        err = _from_provider_error(exc)
-        event = "ambiguous" if isinstance(exc, AmbiguousOutcome) else "failed"
+        submitted = _record(prepared, "submitted", est, job_id=None)
+        try:
+            receipt = prepared.provider.submit(prepared.request)
+        except ProviderError as exc:
+            err = _from_provider_error(exc)
+            event = "ambiguous" if isinstance(exc, AmbiguousOutcome) else "failed"
+            _append(slug, submitted)
+            _append(slug, _record(prepared, event, est, id=submitted["id"], job_id=getattr(exc, "job_id", None), error=err.payload["error"]))
+            raise err from None
+
+        submitted["job_id"] = receipt.job_id
         _append(slug, submitted)
-        _append(slug, _record(prepared, event, est, id=submitted["id"], job_id=getattr(exc, "job_id", None), error=err.payload["error"]))
-        raise err from None
-
-    submitted["job_id"] = receipt.job_id
-    _append(slug, submitted)
     return {"id": submitted["id"], "job_id": receipt.job_id, "state": "queued", "output_name": est["output_name"]}
 
 
@@ -556,6 +592,21 @@ def advance_job(slug: str, job_id: str) -> dict[str, Any]:
             raise GenerateError(404, "unknown job")
         provider = _provider("spritelab_animate")
         actor_dir = _actor_dir(slug)
+
+        # Resume across a restart: an offline fake keeps no server-side job
+        # state, so hand it back the request rebuilt from the persisted ledger
+        # record before polling. Real adapters recognize the job themselves.
+        if hasattr(provider, "adopt"):
+            try:
+                resumed = prepare(slug, "animation", {
+                    "prompt": submitted.get("prompt", ""),
+                    "sprite": submitted["settings"].get("sprite", ""),
+                    "action": submitted["settings"].get("action", ""),
+                    "frames": submitted["settings"].get("frames", DEFAULT_FRAMES),
+                })
+                provider.adopt(job_id, resumed.request)
+            except GenerateError:
+                pass  # Sprite gone or params unrecoverable: let poll report it.
 
         def terminal(event: str, **fields: Any) -> dict[str, Any]:
             rec = dict(submitted, ts=_now(), event=event, **fields)
@@ -590,6 +641,10 @@ def advance_job(slug: str, job_id: str) -> dict[str, Any]:
             path = _write(actor_dir, "animations", f"{slug_us}_{action}_preview.gif", gif)
             outputs["gif"] = path.name
         cand = candidates[0] if candidates else None
+        if cand is not None and "gif" in outputs:
+            _record_provenance(actor_dir, f"animations/{outputs['gif']}", cand)
+        elif cand is not None and "sheet" in outputs:
+            _record_provenance(actor_dir, f"sheets/{outputs['sheet']}", cand)
         terminal(
             "succeeded",
             outputs=outputs,

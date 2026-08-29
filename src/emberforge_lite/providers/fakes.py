@@ -303,6 +303,18 @@ class FakeProvider:
             raw={"job_id": job_id, "status": "queued", "provider": self.name},
         )
 
+    def adopt(self, job_id: str, request: GenerationRequest) -> None:
+        """Re-register a previously submitted job after a restart.
+
+        A real endpoint keeps job state server-side, so a fresh process can poll
+        a job it never submitted. The in-memory fakes cannot, so the orchestrator
+        hands back the persisted request and the job resolves deterministically
+        from here, matching the README's "resume after restart" promise.
+        """
+        if job_id not in self._jobs:
+            self._jobs[job_id] = (request, "queued")
+            self._polls.setdefault(job_id, 0)
+
     def poll(self, job_id: str) -> JobStatus:
         if job_id not in self._jobs:
             raise ProviderRejected(f"{self.name}: unknown job {job_id}")

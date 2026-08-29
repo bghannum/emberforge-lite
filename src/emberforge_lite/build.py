@@ -26,7 +26,7 @@ import html
 import json
 from pathlib import Path
 
-from emberforge_lite import media
+from emberforge_lite import media, provenance, storage
 
 # ROOT is the site directory where generated pages are written; ACTORS_DIR is
 # where actor folders live. They are set to a real data-dir layout by
@@ -237,6 +237,12 @@ STYLE = """
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sprite-card .asset-actions { justify-content: center; margin-top: 4px; }
+  .prov-badge { display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.03em;
+    text-transform: uppercase; padding: 1px 5px; border-radius: 999px; vertical-align: middle;
+    font-family: ui-sans-serif, system-ui, sans-serif; white-space: nowrap; }
+  .prov-generated { background: rgba(56, 189, 248, 0.15); color: var(--cyan, #38bdf8); }
+  .prov-uploaded { background: rgba(148, 163, 184, 0.18); color: var(--text-secondary); }
+  .prov-unknown { background: rgba(251, 191, 36, 0.18); color: #f59e0b; }
 
   .anim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
   .anim-card { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 14px;
@@ -664,12 +670,31 @@ def asset_actions_html(esc_slug: str, filename: str, extra: str = "") -> str:
     )
 
 
+def provenance_badge(assets: dict, category: str, filename: str) -> str:
+    """A small badge marking an asset generated vs uploaded, warning on unknown rights."""
+    entry = assets.get(f"{category}/{filename}")
+    if entry is None:
+        return (
+            '<span class="prov-badge prov-unknown" '
+            'title="No provenance recorded; rights unknown. Verify before you treat this as your own.">'
+            "? rights unknown</span>"
+        )
+    if entry.get("source") == "generated":
+        provider = html.escape(str(entry.get("provider") or "provider"))
+        return f'<span class="prov-badge prov-generated" title="Generated via {provider}">generated</span>'
+    return (
+        '<span class="prov-badge prov-uploaded" '
+        'title="Uploaded by you; rights unknown. Verify before redistribution.">uploaded</span>'
+    )
+
+
 def render_actor(actor_dir: Path) -> str:
     slug = actor_dir.name
     sprites = list_media(actor_dir / "sprites", IMAGE_EXTS)
     animations = list_media(actor_dir / "animations", IMAGE_EXTS)
     sounds = list_media(actor_dir / "sounds", AUDIO_EXTS)
     links = load_links(actor_dir)
+    prov_assets = provenance.load(actor_dir).get("assets", {})
     esc_slug = html.escape(slug, quote=True)
 
     def rel(p: Path) -> str:
@@ -681,7 +706,7 @@ def render_actor(actor_dir: Path) -> str:
     sprite_html = "".join(
         f'<div class="sprite-card">'
         f'<div class="sprite-thumb checker"><img class="pixel-art" src="{rel(p)}" loading="lazy"></div>'
-        f'<div class="asset-name">{html.escape(p.name)}</div>'
+        f'<div class="asset-name">{html.escape(p.name)} {provenance_badge(prov_assets, "sprites", p.name)}</div>'
         f"{asset_actions_html(esc_slug, p.name)}"
         f"</div>"
         for p in sprites
@@ -764,7 +789,8 @@ def render_actor(actor_dir: Path) -> str:
             f'<span class="badge badge-loop">{LOOP_ICON}</span>'
             f"</div>"
             f'<div class="anim-body">'
-            f'<div class="asset-name-row"><div class="asset-name">{html.escape(p.name)}</div>'
+            f'<div class="asset-name-row"><div class="asset-name">{html.escape(p.name)} '
+            f'{provenance_badge(prov_assets, "animations", p.name)}</div>'
             f"{sheet_link}{asset_actions_html(esc_slug, p.name)}</div>"
             f"{speed_row}"
             f'<div class="sound-pills">{buttons or NO_SOUND_HTML}</div>'
@@ -946,10 +972,10 @@ def build() -> int:
     for d in actor_dirs:
         topbar = render_topbar(actor_dirs, active_slug=d.name)
         page = page_shell(f"{d.name} — emberforge-lite", topbar, render_actor(d))
-        (ROOT / f"{ACTOR_PAGE_PREFIX}{d.name}.html").write_text(page)
+        storage.atomic_write_text(ROOT / f"{ACTOR_PAGE_PREFIX}{d.name}.html", page)
 
     topbar = render_topbar(actor_dirs, active_slug=None)
-    OUTPUT.write_text(page_shell("emberforge-lite gallery", topbar, render_index_body(actor_dirs)))
+    storage.atomic_write_text(OUTPUT, page_shell("emberforge-lite gallery", topbar, render_index_body(actor_dirs)))
     return len(actor_dirs)
 
 

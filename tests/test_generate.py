@@ -127,13 +127,21 @@ class TestLedger:
         records = generate.read_ledger("hero")
         assert records[-1]["job_id"] == "j1"
 
-    def test_malformed_line_skipped(self, gen_env):
+    def test_interrupted_final_line_tolerated(self, gen_env):
         actor = _make_actor(gen_env)
         ledger = actor / generate.LEDGER_NAME
-        ledger.write_text('{"event": "submitted", "job_id": "ok"}\n{ broken json\n')
+        # A crash mid-write leaves a partial last line: tolerate it.
+        ledger.write_text('{"event": "submitted", "job_id": "ok"}\n{ broken')
         records = generate.read_ledger("hero")
         assert len(records) == 1
         assert records[0]["job_id"] == "ok"
+
+    def test_malformed_middle_line_raises(self, gen_env):
+        actor = _make_actor(gen_env)
+        ledger = actor / generate.LEDGER_NAME
+        ledger.write_text('{ broken json\n{"event": "submitted", "job_id": "ok"}\n')
+        with pytest.raises(generate.LedgerError):
+            generate.read_ledger("hero")
 
     def test_open_jobs_excludes_terminal(self, gen_env):
         _make_actor(gen_env)

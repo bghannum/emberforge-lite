@@ -14,7 +14,7 @@ from contextlib import contextmanager
 
 import pytest
 
-from emberforge_lite import build, generate, server
+from emberforge_lite import build, generate, provenance, server
 from emberforge_lite.providers.fakes import _png, _wav
 
 
@@ -181,3 +181,31 @@ class TestSpeedAndProviders:
             status, body = call(port, "GET", "/providers")
             assert status == 200
             assert body["allow_spend"] is False
+
+
+class TestProvenanceThroughServer:
+    def test_upload_records_uploaded_provenance(self, data_root):
+        with running_server(data_root) as port:
+            status, _ = call(port, "PUT", "/upload/hero/new.png", raw=_png(32, 32, b"u"))
+            assert status == 200
+            entry = provenance.entry_for(data_root / "actors" / "hero", "sprites/new.png")
+            assert entry == {"source": "uploaded", "account_rights": None}
+
+    def test_delete_removes_provenance(self, data_root):
+        with running_server(data_root) as port:
+            call(port, "PUT", "/upload/hero/gone.png", raw=_png(32, 32, b"u"))
+            actor = data_root / "actors" / "hero"
+            assert provenance.entry_for(actor, "sprites/gone.png") is not None
+            status, _ = call(port, "DELETE", "/asset/hero/gone.png")
+            assert status == 200
+            assert provenance.entry_for(actor, "sprites/gone.png") is None
+
+    def test_rename_moves_provenance(self, data_root):
+        with running_server(data_root) as port:
+            call(port, "PUT", "/upload/hero/orig.png", raw=_png(32, 32, b"u"))
+            actor = data_root / "actors" / "hero"
+            status, _ = call(port, "POST", "/rename",
+                             {"slug": "hero", "filename": "orig.png", "new_name": "renamed.png"})
+            assert status == 200
+            assert provenance.entry_for(actor, "sprites/orig.png") is None
+            assert provenance.entry_for(actor, "sprites/renamed.png")["source"] == "uploaded"

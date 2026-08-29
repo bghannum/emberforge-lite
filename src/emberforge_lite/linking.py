@@ -7,6 +7,8 @@ stay in sync.
 import json
 from pathlib import Path
 
+from emberforge_lite import storage
+
 
 def _links_file(actors_dir: Path, slug: str) -> Path:
     return actors_dir / slug / "links.json"
@@ -17,7 +19,7 @@ def _load_links(links_file: Path) -> dict[str, list[str]]:
 
 
 def _save_links(links_file: Path, links: dict[str, list[str]]) -> None:
-    links_file.write_text(json.dumps(links, indent=2, sort_keys=True) + "\n")
+    storage.atomic_write_text(links_file, json.dumps(links, indent=2, sort_keys=True) + "\n")
 
 
 def add_link(actors_dir: Path, slug: str, anim_name: str, sound_name: str) -> None:

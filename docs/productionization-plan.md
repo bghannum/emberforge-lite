@@ -124,26 +124,26 @@ runtime dependencies), running `emberforge-lite demo` offline, and a non-destruc
 
 ## 6. Milestone 3 — Reliable storage, generation, and provenance
 
-**Milestone status:** Pending
+**Milestone status:** Complete
 
 Introduce storage services so request handlers no longer coordinate multi-file mutations directly.
 
 | Status | Task |
 |---|---|
-| Pending | Use one lock per actor for uploads, links, renames, deletes, generation reservation, and page rebuilds. |
-| Pending | Write JSON, JSONL terminal events, generated pages, and output media through sibling temporary files and atomic replacement. |
-| Pending | Make filename reservation and file creation one locked operation to eliminate collision races. |
-| Pending | Treat rename and delete operations plus changes to `links.json`, spritesheets, provenance, and pages as a single recoverable transaction. |
-| Pending | Preserve the append-only generation ledger and report malformed records with actor, file, and line number; tolerate only an interrupted final line. |
-| Pending | Reserve an animation job under the actor lock before provider submission so concurrent confirmations cannot double-submit. |
-| Pending | Persist enough fake-provider request state to resume offline animation jobs after restart, matching the README claim. |
-| Pending | Add structured local logs containing event, actor, operation, duration, outcome, and redacted errors. Do not log prompts by default or credential values at all. |
-| Pending | Clean stale temporary files safely at startup and report recovery actions. |
-| Pending | Add provenance schema version 1 and preserve provider metadata that is currently discarded. |
-| Pending | Record uploaded assets with `source: "uploaded"` and omit generation-only fields. |
-| Pending | Update provenance atomically when assets are renamed or deleted. |
-| Pending | Include `provenance.json` and the generation ledger in actor exports. |
-| Pending | Identify uploaded versus generated assets in the UI and warn when rights metadata is unknown. |
+| Complete | Use one lock per actor for uploads, links, renames, deletes, generation reservation, and page rebuilds. (`storage.actor_lock`, a re-entrant per-slug lock.) |
+| Complete | Write JSON, JSONL terminal events, generated pages, and output media through sibling temporary files and atomic replacement. (`storage.atomic_write_*`, `reserve_and_write`; ledger append fsyncs; pages via `build`.) |
+| Complete | Make filename reservation and file creation one locked operation to eliminate collision races. (`storage.reserve_and_write`, `tests/test_storage.py::TestReserveAndWrite`.) |
+| Complete | Treat rename and delete operations plus changes to `links.json`, spritesheets, provenance, and pages as a single recoverable transaction. (`server` handlers hold the actor lock across file + links + sheet + provenance.) |
+| Complete | Preserve the append-only generation ledger and report malformed records with actor, file, and line number; tolerate only an interrupted final line. (`generate.read_ledger` / `LedgerError`.) |
+| Complete | Reserve an animation job under the actor lock before provider submission so concurrent confirmations cannot double-submit. (`submit_animation`; `tests/test_reliability.py::TestNoDoubleSubmit`.) |
+| Complete | Persist enough fake-provider request state to resume offline animation jobs after restart, matching the README claim. (`FakeProvider.adopt` + `advance_job` rebuilds the request from the ledger; `TestResumeAfterRestart`.) |
+| Complete | Add structured local logs containing event, actor, operation, duration, outcome, and redacted errors. Do not log prompts by default or credential values at all. (`logs.py`; errors pass through the provider redactor; prompts never logged.) |
+| Complete | Clean stale temporary files safely at startup and report recovery actions. (`storage.clean_stale_temp`, called in `server.serve`.) |
+| Complete | Add provenance schema version 1 and preserve provider metadata that is currently discarded. (`provenance.py`, `record_generated` keeps provider/model/prompt/dates/rights/transforms/charge/vendor.) |
+| Complete | Record uploaded assets with `source: "uploaded"` and omit generation-only fields. (`provenance.record_uploaded`; wired into `server.do_PUT`.) |
+| Complete | Update provenance atomically when assets are renamed or deleted. (`provenance.rename_asset` / `remove_asset` under the actor lock.) |
+| Complete | Include `provenance.json` and the generation ledger in actor exports. (`TestExportContents`.) |
+| Complete | Identify uploaded versus generated assets in the UI and warn when rights metadata is unknown. (`build.provenance_badge`: generated / uploaded / "rights unknown".) |
 
 ### Provenance schema version 1
 

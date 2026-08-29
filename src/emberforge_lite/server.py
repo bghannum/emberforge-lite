@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from emberforge_lite import audiotools, build, generate, media
+from emberforge_lite import audiotools, build, generate, logs, media, provenance, storage
 from emberforge_lite.gifspeed import slow_gif
 from emberforge_lite.linking import (
     add_link,
@@ -392,9 +392,10 @@ class Handler(BaseHTTPRequestHandler):
         target_dir = ACTORS_DIR / slug / category
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        # Write to a temp file in the destination dir, validate it, then commit
-        # with an atomic rename. A rejected upload never becomes a real file.
-        fd, tmp_name = tempfile.mkstemp(dir=target_dir, suffix=ext)
+        # Validate a rejected-upload-safe copy first, then reserve a name and
+        # commit atomically -- all under the actor lock so name reservation and
+        # provenance can't race a concurrent upload/rename.
+        fd, tmp_name = tempfile.mkstemp(dir=target_dir, prefix=storage.TMP_PREFIX, suffix=ext)
         tmp_path = Path(tmp_name)
         try:
             with os.fdopen(fd, "wb") as fh:
@@ -402,15 +403,19 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 self._validate_upload(tmp_path, ext)
             except (media.Rejected, ValueError) as exc:
+                logs.event("upload", actor=slug, operation="upload", outcome="rejected", error=str(exc))
                 self._respond(400, {"error": f"rejected: {exc}"})
                 return
-            target_path = unique_path(target_dir, filename)
-            os.replace(tmp_path, target_path)
+            with storage.actor_lock(slug):
+                target_path = unique_path(target_dir, filename)
+                os.replace(tmp_path, target_path)
+                provenance.record_uploaded(ACTORS_DIR / slug, f"{category}/{target_path.name}")
         finally:
             if tmp_path.exists():
                 tmp_path.unlink()
 
         actor_count = build.build()
+        logs.event("upload", actor=slug, operation="upload", outcome="ok", filename=target_path.name)
         self._respond(
             200,
             {"slug": slug, "category": category, "filename": target_path.name, "actors": actor_count},
@@ -457,17 +462,23 @@ class Handler(BaseHTTPRequestHandler):
         if not target.is_file():
             self._respond(404, {"error": "no such asset"})
             return
-        target.unlink()
 
-        if category == "animations":
-            remove_animation(ACTORS_DIR, slug, filename)
-            sheet = sheet_for(actor_dir, filename)
-            if sheet is not None:
-                sheet.unlink()
-        elif category == "sounds":
-            remove_sound(ACTORS_DIR, slug, filename)
+        # Delete the file, its links, its spritesheet, and its provenance as one
+        # locked transaction so a reader never sees a half-removed asset.
+        with storage.actor_lock(slug):
+            target.unlink()
+            provenance.remove_asset(actor_dir, f"{category}/{filename}")
+            if category == "animations":
+                remove_animation(ACTORS_DIR, slug, filename)
+                sheet = sheet_for(actor_dir, filename)
+                if sheet is not None:
+                    sheet.unlink()
+                    provenance.remove_asset(actor_dir, f"sheets/{sheet.name}")
+            elif category == "sounds":
+                remove_sound(ACTORS_DIR, slug, filename)
 
         actor_count = build.build()
+        logs.event("delete", actor=slug, operation="delete", outcome="ok", filename=filename)
         self._respond(200, {"deleted": filename, "actors": actor_count})
 
     # -- POST -------------------------------------------------------------
@@ -588,21 +599,26 @@ class Handler(BaseHTTPRequestHandler):
         if new_path.exists():
             self._respond(409, {"error": f"{new_name} already exists"})
             return
-        old_path.rename(new_path)
+        # File, links, spritesheet, and provenance move together under the lock.
+        with storage.actor_lock(slug):
+            old_path.rename(new_path)
+            provenance.rename_asset(actor_dir, f"{category}/{old_name}", f"{category}/{new_name}")
+            if category == "animations":
+                rename_animation(ACTORS_DIR, slug, old_name, new_name)
+                sheet = sheet_for(actor_dir, old_name)
+                if sheet is not None:
+                    new_sheet = sheet_for(actor_dir, new_name)
+                    if new_sheet is None:
+                        stem = Path(new_name).stem
+                        if stem.endswith("_preview"):
+                            stem = stem[: -len("_preview")]
+                        new_sheet_path = actor_dir / "sheets" / f"{stem}_sheet.png"
+                        sheet.rename(new_sheet_path)
+                        provenance.rename_asset(actor_dir, f"sheets/{sheet.name}", f"sheets/{new_sheet_path.name}")
+            elif category == "sounds":
+                rename_sound(ACTORS_DIR, slug, old_name, new_name)
 
-        if category == "animations":
-            rename_animation(ACTORS_DIR, slug, old_name, new_name)
-            sheet = sheet_for(actor_dir, old_name)
-            if sheet is not None:
-                new_sheet = sheet_for(actor_dir, new_name)
-                if new_sheet is None:
-                    stem = Path(new_name).stem
-                    if stem.endswith("_preview"):
-                        stem = stem[: -len("_preview")]
-                    sheet.rename(actor_dir / "sheets" / f"{stem}_sheet.png")
-        elif category == "sounds":
-            rename_sound(ACTORS_DIR, slug, old_name, new_name)
-
+        logs.event("rename", actor=slug, operation="rename", outcome="ok", filename=new_name)
         self._respond(200, {"filename": new_name, "actors": build.build()})
 
     def _handle_estimate(self) -> None:
@@ -677,7 +693,14 @@ def serve(paths, port: int = 8000, *, allow_spend: bool = False, env_file: Path 
     configure_paths(paths)
     build.configure_paths(paths)
     generate.configure_paths(paths)
+    logs.configure_logging(paths)
     generate.configure(allow_spend=allow_spend, env_file=env_file)
+
+    # Sweep temp files a previous crash left mid-write, and report the recovery.
+    stale = storage.clean_stale_temp(paths.actors) + storage.clean_stale_temp(paths.site)
+    if stale:
+        print(f"recovered: removed {len(stale)} stale temp file(s)", flush=True)
+        logs.event("startup", operation="recover", outcome="ok", removed=len(stale))
 
     status = generate.provider_status()["providers"]
     if allow_spend:
