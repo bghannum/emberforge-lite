@@ -822,7 +822,7 @@ class SpriteLabSource(SpriteLab):
         charge = vendor.get("_charge")
         return (
             Candidate(
-                candidate_id=f"cand_{job_id[:16]}_00",
+                candidate_id=self._candidate_id(job_id),
                 media=png,
                 media_kind="png",
                 provenance=CandidateProvenance(

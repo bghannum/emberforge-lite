@@ -532,11 +532,14 @@ class Handler(BaseHTTPRequestHandler):
     def _handle_link(self):
         try:
             payload = self._read_json()
-            slug = str(payload["slug"])
-            animation = str(payload["animation"])
-            sound = str(payload["sound"])
+            slug = sanitize_slug(str(payload["slug"]))
+            animation = sanitize_filename(str(payload["animation"]))
+            sound = sanitize_filename(str(payload["sound"]))
         except (ValueError, KeyError, TypeError):
             self._respond(400, {"error": "expected JSON {slug, animation, sound}"})
+            return
+        if not slug or not animation or not sound:
+            self._respond(400, {"error": "invalid slug or filename"})
             return
         try:
             add_link(ACTORS_DIR, slug, animation, sound)
