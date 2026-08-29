@@ -88,6 +88,72 @@ function modalPrompt(message, value) {
   return modal({ title: 'Enter a value', message, input: true, value, confirmLabel: 'OK' });
 }
 
+// Dual-handle range selector for trimming a sound. Resolves {start, end} in ms,
+// or null if cancelled. Two overlaid range inputs share one track (the classic
+// two-thumb slider); neither handle can cross the other, and a minimum window is
+// always kept so the trim can never be empty.
+function modalTrim(sound, durationMs) {
+  return new Promise((resolve) => {
+    const STEP = 10;
+    const GAP = STEP;                    // smallest window the handles allow
+    const max = Math.max(durationMs, GAP);
+    let lo = 0, hi = max;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'efl-modal-overlay';
+    const box = document.createElement('div');
+    box.className = 'efl-modal';
+    const h = document.createElement('h3');
+    h.textContent = `Trim ${sound}`;
+    const p = document.createElement('p');
+    p.textContent = 'Drag the handles to choose the part to keep. A new file is written; the original is left untouched.';
+    box.append(h, p);
+
+    const widget = document.createElement('div');
+    widget.className = 'efl-range';
+    const fill = document.createElement('div');
+    fill.className = 'efl-range-fill';
+    const loI = document.createElement('input');
+    const hiI = document.createElement('input');
+    for (const el of [loI, hiI]) { el.type = 'range'; el.min = '0'; el.max = String(max); el.step = String(STEP); }
+    loI.value = String(lo); hiI.value = String(hi);
+    loI.setAttribute('aria-label', 'Trim start (ms)');
+    hiI.setAttribute('aria-label', 'Trim end (ms)');
+    widget.append(fill, loI, hiI);
+
+    const readout = document.createElement('div');
+    readout.className = 'efl-range-readout';
+    box.append(widget, readout);
+
+    const row = document.createElement('div');
+    row.className = 'efl-modal-actions';
+    const cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.className = 'btn-ghost'; cancel.textContent = 'Cancel';
+    const ok = document.createElement('button');
+    ok.type = 'button'; ok.className = 'btn-primary'; ok.textContent = 'Trim';
+    row.append(cancel, ok);
+    box.append(row);
+    overlay.append(box);
+    document.body.appendChild(overlay);
+
+    const pct = (v) => (v / max) * 100;
+    const render = () => {
+      fill.style.left = pct(lo) + '%';
+      fill.style.right = (100 - pct(hi)) + '%';
+      readout.innerHTML = `Keep <b>${lo}–${hi} ms</b> · ${hi - lo} ms of ${max} ms`;
+    };
+    loI.addEventListener('input', () => { lo = Math.min(+loI.value, hi - GAP); loI.value = String(lo); render(); });
+    hiI.addEventListener('input', () => { hi = Math.max(+hiI.value, lo + GAP); hiI.value = String(hi); render(); });
+    render();
+
+    const close = (result) => { overlay.remove(); resolve(result); };
+    cancel.addEventListener('click', () => close(null));
+    ok.addEventListener('click', () => close({ start: lo, end: hi }));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+    box.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(null); });
+  });
+}
+
 function setSpeed(imgId, slug, filename, factor) {
   const img = document.getElementById(imgId);
   const base = img.dataset.baseSrc;
@@ -192,17 +258,24 @@ async function unlinkSound(slug, animation, sound) {
 }
 
 async function trimSound(slug, sound, durationMs, linkTo) {
-  const hint = durationMs ? `${sound} is ${durationMs} ms.` : sound;
-  const answer = await modalPrompt(
-    `${hint} Keep which part? Enter start-end in ms (a new file is written; the original is kept):`,
-    `0-${durationMs || 1000}`);
-  if (!answer) return;
-  const m = answer.trim().match(/^(\d+)\s*-\s*(\d+)$/);
-  if (!m) { toast('Enter a range like 120-700', true); return; }
+  let start, end;
+  if (durationMs) {
+    const range = await modalTrim(sound, durationMs);
+    if (!range) return;
+    start = range.start; end = range.end;
+  } else {
+    // Unknown duration (rare): fall back to typing an explicit window.
+    const answer = await modalPrompt(
+      `${sound}: keep which part? Enter start-end in ms (a new file is written; the original is kept):`, '0-1000');
+    if (!answer) return;
+    const m = answer.trim().match(/^(\d+)\s*-\s*(\d+)$/);
+    if (!m) { toast('Enter a range like 120-700', true); return; }
+    start = +m[1]; end = +m[2];
+  }
   const res = await fetch('/trim', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({slug, sound, start_ms: +m[1], end_ms: +m[2], link_to: linkTo || null}),
+    body: JSON.stringify({slug, sound, start_ms: start, end_ms: end, link_to: linkTo || null}),
   });
   if (!res.ok) {
     let msg = await res.text();
