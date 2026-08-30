@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "animation": "dark_mist",
+  "frame_count": 16,
+  "frame_order": "row_major",
+  "cell_size_pixels": [314, 314],
+  "root_anchor_pixels": [157, 307],
+  "loop": false,
+  "visual_peak_frame_zero_based": 9,
+  "target_direction": "right",
+  "resulting_visual_state": "canonical_idle",
+  "frame_delays_seconds": [0.08, 0.06, 0.06, 0.06, 0.06, 0.06, 0.07, 0.07, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.10, 0.14],
+  "notes": ["Frames 0 and 15 are pixel-identical canonical idle frames.", "The spell visual is presentation-only; connect the peak signal to mechanics separately."]
+}

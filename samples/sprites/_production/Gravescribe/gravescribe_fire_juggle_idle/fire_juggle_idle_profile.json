@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "animation": "fire_juggle_idle",
+  "frame_count": 20,
+  "frame_order": "row_major",
+  "cell_size_pixels": [314, 314],
+  "root_anchor_pixels": [157, 307],
+  "loop": true,
+  "visual_peak_frame_zero_based": 8,
+  "target_direction": "forward",
+  "resulting_visual_state": "canonical_idle",
+  "frame_delays_seconds": [0.10, 0.08, 0.07, 0.07, 0.07, 0.07, 0.07, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.07, 0.08, 0.12],
+  "notes": ["Frames 0 and 19 are pixel-identical canonical idle frames.", "The purple fire is presentation-only and should not trigger gameplay mechanics."]
+}

@@ -1,0 +1,9 @@
+Use case: stylized-concept
+Asset type: production source atlas for a 2D pixel-art battle-idle animation
+Input image: the provided Gravescribe PNG is the strict character, costume, palette, pixel-art style, facing direction, proportions, open spellbook, purple flame, and silhouette reference.
+Primary request: Create one ordered 28-frame, 7-column by 4-row, row-major atlas for a seamless restrained combat idle. Keep both feet planted, the purple ghost-flame supported in one hand, and the open book in the other. Animate gentle breathing, robe settling, a subtle weight shift toward the book, a tiny wrist/re-grip adjustment, a minute hood glance toward the page, a page edge lifting without turning, asynchronous robe-tail and flame flicker, and a progressive exact return to the opening pose.
+Scene/backdrop: genuine transparent background in every cell.
+Style/medium: preserve crisp hand-authored pixel art, hard pixel edges, skeletal face, purple hood and robes, gold trim, brown-gold book, and violet flame.
+Composition/framing: one centered full-body character per equal cell, consistent scale, clear padding, stable baseline/root, no visible grid or labels.
+Constraints: stable identity/equipment; readable face, hand, flame, and book; feet never slide; subtle body motion; seamless loop; true alpha.
+Avoid: spell casts, projectiles, giant flame, page tosses, walking, foot lifts, dramatic changes, camera changes, redesign, extra limbs/books, blur, antialiasing, checkerboard.

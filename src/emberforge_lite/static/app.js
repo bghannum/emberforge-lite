@@ -166,8 +166,17 @@ function setSpeed(imgId, slug, filename, factor) {
 }
 
 function playWithSound(imgId, audioId) {
-  const img = document.getElementById(imgId);
   const audio = document.getElementById(audioId);
+  const player = PLAYERS.get(imgId);
+  if (player) {
+    // Frame package: restart the stepper at frame 0 and start the audio in
+    // the same tick, so the pairing is judged from a known origin.
+    player.restart();
+    audio.currentTime = 0;
+    audio.play();
+    return;
+  }
+  const img = document.getElementById(imgId);
   const src = img.src;
   img.src = '';
   audio.currentTime = 0;
@@ -189,6 +198,39 @@ async function uploadFiles(slug, fileList) {
     }
   }
   location.href = `actor-${encodeURIComponent(slug)}.html`;
+}
+
+// Folder import: the file input carries `webkitdirectory`, so each File has a
+// webkitRelativePath under the picked folder. Send them as one multipart body
+// (filename = relative path); the server stages and imports the folder with
+// the same code path as `emberforge-lite import`.
+async function importFolder(slug, fileList) {
+  const files = Array.from(fileList);
+  if (!files.length) return;
+  const form = new FormData();
+  let total = 0;
+  for (const file of files) {
+    const rel = file.webkitRelativePath || file.name;
+    if (rel.split('/').some(p => p.startsWith('.'))) continue;   // .DS_Store and friends
+    form.append('file', file, rel);
+    total += file.size;
+  }
+  toast(`Importing ${files.length} files…`);
+  const res = await fetch(`/import/${encodeURIComponent(slug)}`, { method: 'POST', body: form });
+  if (!res.ok) {
+    let detail = await res.text();
+    try { detail = JSON.parse(detail).error || detail; } catch (_) { /* plain text */ }
+    toast(`Import failed: ${detail}`, true);
+    return;
+  }
+  const body = await res.json();
+  const notes = [...body.skipped, ...body.warnings];
+  if (!body.animations && !body.sprites) {
+    toast(`Nothing imported. ${notes.join(' · ')}`, true);
+    return;
+  }
+  toast(`Imported ${body.animations} animation(s), ${body.frames} frames` + (notes.length ? ` · ${notes.length} note(s)` : ''));
+  setTimeout(() => { location.href = `actor-${encodeURIComponent(slug)}.html`; }, notes.length ? 1500 : 400);
 }
 
 function uploadNewActor() {
@@ -440,6 +482,272 @@ async function genInit() {
   }
 }
 
+// ---- Frame-package player -------------------------------------------------
+// A frame package is an animation stored as ordered PNGs plus manifest.json
+// with an exact per-frame delay in ms. The browser's GIF decoder cannot honour
+// that (GIF delays are centiseconds), so these cards draw frames onto a canvas
+// themselves. Time is accumulated from requestAnimationFrame timestamps and
+// frames advance when their delay has elapsed, so long-running playback never
+// drifts from the authored total.
+
+const PLAYERS = new Map();   // canvas id -> FramePlayer
+
+class FramePlayer {
+  constructor(card) {
+    this.card = card;
+    this.slug = card.dataset.slug;
+    this.name = card.dataset.animation;
+    this.canvas = document.getElementById(card.dataset.canvas);
+    this.ctx = this.canvas.getContext('2d');
+    this.ctx.imageSmoothingEnabled = false;
+    this.framesBase = card.dataset.framesBase;
+    this.scrub = card.querySelector('[data-action="fp-scrub"]');
+    this.readout = card.querySelector('[data-role="frame"]');
+    this.toggleBtn = card.querySelector('[data-action="fp-toggle"]');
+    this.loopBox = card.querySelector('[data-action="fp-loop"]');
+    this.images = [];
+    this.delays = [];
+    this.loop = false;
+    this.idx = 0;
+    this.acc = 0;
+    this.speed = 1;
+    this.playing = false;
+    this.last = 0;
+    this.raf = 0;
+    this.timer = 0;
+    this.ready = false;
+  }
+
+  async load() {
+    const res = await fetch(this.card.dataset.manifest);
+    if (!res.ok) throw new Error(`manifest ${res.status}`);
+    const manifest = await res.json();
+    this.manifest = manifest;
+    this.delays = manifest.frames.map(f => f.delay_ms);
+    this.loop = !!manifest.loop;
+    if (this.loopBox) this.loopBox.checked = this.loop;
+    if (manifest.frame_size) {
+      this.canvas.width = manifest.frame_size[0];
+      this.canvas.height = manifest.frame_size[1];
+      this.ctx.imageSmoothingEnabled = false;
+    }
+    this.images = await Promise.all(manifest.frames.map(f => new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`frame ${f.file}`));
+      img.src = this.framesBase + encodeURIComponent(f.file);
+    })));
+    if (this.scrub) this.scrub.max = String(this.images.length - 1);
+    this.ready = true;
+    this.draw();
+    this.play();
+  }
+
+  draw() {
+    const img = this.images[this.idx];
+    if (!img) return;
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.drawImage(img, 0, 0);
+    if (this.scrub) this.scrub.value = String(this.idx);
+    if (this.readout) {
+      const elapsed = this.delays.slice(0, this.idx).reduce((a, b) => a + b, 0);
+      this.readout.textContent = `${this.idx} / ${this.images.length} · ${elapsed} ms`;
+    }
+  }
+
+  tick(ts) {
+    if (!this.playing) return;
+    if (this.last) this.acc += (ts - this.last) * this.speed;
+    this.last = ts;
+    let moved = false;
+    while (this.acc >= this.delays[this.idx]) {
+      this.acc -= this.delays[this.idx];
+      moved = true;
+      if (this.idx + 1 >= this.images.length) {
+        if (this.loop) { this.idx = 0; }
+        else { this.idx = this.images.length - 1; this.pause(); break; }   // hold the last frame
+      } else {
+        this.idx += 1;
+      }
+    }
+    if (moved) this.draw();
+    if (this.playing) this.schedule();
+  }
+
+  // requestAnimationFrame stops in a hidden tab; a GIF would keep going, so
+  // fall back to a timer there and resume rAF when the page is visible again.
+  schedule() {
+    clearTimeout(this.timer);
+    cancelAnimationFrame(this.raf);
+    if (document.visibilityState === 'hidden') {
+      this.timer = setTimeout(() => this.tick(performance.now()), Math.max(16, this.delays[this.idx] / this.speed));
+    } else {
+      this.raf = requestAnimationFrame((t) => this.tick(t));
+    }
+  }
+
+  play() {
+    if (!this.ready || this.playing) return;
+    if (!this.loop && this.idx >= this.images.length - 1) { this.idx = 0; this.acc = 0; this.draw(); }
+    this.playing = true;
+    this.last = 0;
+    this.card.classList.add('playing');
+    this.schedule();
+  }
+
+  pause() {
+    this.playing = false;
+    this.card.classList.remove('playing');
+    cancelAnimationFrame(this.raf);
+    clearTimeout(this.timer);
+  }
+
+  toggle() { this.playing ? this.pause() : this.play(); }
+
+  restart() { this.pause(); this.idx = 0; this.acc = 0; this.draw(); this.play(); }
+
+  seek(i) {
+    this.pause();
+    this.idx = Math.max(0, Math.min(this.images.length - 1, i | 0));
+    this.acc = 0;
+    this.draw();
+  }
+
+  step(dir) {
+    const n = this.images.length;
+    this.seek((this.idx + dir + n) % n);
+  }
+
+  setSpeed(factor) { this.speed = Number(factor) || 1; }
+
+  setLoop(on) {
+    this.loop = !!on;
+    if (this.loop && !this.playing) this.play();
+  }
+
+  setDelays(delays) {
+    this.delays = delays.slice();
+    this.acc = 0;
+    this.draw();
+    const meta = this.card.querySelector('.fp-meta');
+    if (meta) {
+      const total = this.delays.reduce((a, b) => a + b, 0);
+      meta.textContent = `${this.delays.length} frames · ${total} ms · timing: edited`;
+    }
+  }
+}
+
+function playerFor(el) {
+  return PLAYERS.get(el.dataset.canvas);
+}
+
+async function initPlayers() {
+  for (const card of document.querySelectorAll('[data-player]')) {
+    const player = new FramePlayer(card);
+    PLAYERS.set(card.dataset.canvas, player);
+    player.load().catch(err => {
+      card.classList.add('broken');
+      toast(`Could not load ${player.name}: ${err.message}`, true);
+    });
+  }
+}
+
+// Per-frame delay editor. Thumbnails are drawn from the already-loaded frame
+// images, each with a number input; the total updates live. Saving POSTs the
+// whole delay list, which the server validates against the manifest.
+function modalTiming(player) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'efl-modal-overlay';
+    const box = document.createElement('div');
+    box.className = 'efl-modal efl-modal-wide';
+    const h = document.createElement('h3');
+    h.textContent = `Timing for ${player.name}`;
+    const p = document.createElement('p');
+    p.textContent = 'How long each frame is shown, in milliseconds. Saved into the package manifest.';
+    box.append(h, p);
+
+    const grid = document.createElement('div');
+    grid.className = 'fp-timing-grid';
+    const inputs = [];
+    player.images.forEach((img, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'fp-timing-cell';
+      const thumb = document.createElement('canvas');
+      thumb.width = 48; thumb.height = 48; thumb.className = 'pixel-art';
+      const tctx = thumb.getContext('2d');
+      tctx.imageSmoothingEnabled = false;
+      tctx.drawImage(img, 0, 0, 48, 48);
+      const label = document.createElement('div');
+      label.className = 'fp-timing-index';
+      label.textContent = String(i);
+      const input = document.createElement('input');
+      input.type = 'number'; input.min = '1'; input.max = '60000'; input.step = '1';
+      input.value = String(player.delays[i]);
+      input.setAttribute('aria-label', `Frame ${i} delay (ms)`);
+      inputs.push(input);
+      cell.append(thumb, label, input);
+      cell.addEventListener('click', (e) => { if (e.target !== input) player.seek(i); });
+      grid.appendChild(cell);
+    });
+    box.appendChild(grid);
+
+    const loopRow = document.createElement('label');
+    loopRow.className = 'fp-timing-loop';
+    const loopBox = document.createElement('input');
+    loopBox.type = 'checkbox'; loopBox.checked = player.loop;
+    loopRow.append(loopBox, document.createTextNode(' Loop'));
+    const total = document.createElement('div');
+    total.className = 'efl-range-readout';
+    const values = () => inputs.map(el => Math.max(1, Math.min(60000, Math.round(Number(el.value) || 0))));
+    const render = () => { total.innerHTML = `Total <b>${values().reduce((a, b) => a + b, 0)} ms</b>`; };
+    grid.addEventListener('input', render);
+    render();
+    box.append(loopRow, total);
+
+    const row = document.createElement('div');
+    row.className = 'efl-modal-actions';
+    const cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.className = 'btn-ghost'; cancel.textContent = 'Cancel';
+    const ok = document.createElement('button');
+    ok.type = 'button'; ok.className = 'btn-primary'; ok.textContent = 'Save';
+    row.append(cancel, ok);
+    box.append(row);
+    overlay.append(box);
+    document.body.appendChild(overlay);
+
+    const close = (result) => { overlay.remove(); resolve(result); };
+    cancel.addEventListener('click', () => close(null));
+    ok.addEventListener('click', () => close({ delays: values(), loop: loopBox.checked }));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+    box.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(null); });
+  });
+}
+
+async function editTiming(player) {
+  if (!player || !player.ready) return;
+  const wasPlaying = player.playing;
+  player.pause();
+  const edit = await modalTiming(player);
+  if (!edit) { if (wasPlaying) player.play(); return; }
+  const res = await fetch('/timing', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: player.slug, animation: player.name, delays: edit.delays, loop: edit.loop }),
+  });
+  if (!res.ok) {
+    toast(`Timing not saved: ${await res.text()}`, true);
+    if (wasPlaying) player.play();
+    return;
+  }
+  const body = await res.json();
+  player.setDelays(edit.delays);
+  player.setLoop(edit.loop);
+  if (player.loopBox) player.loopBox.checked = edit.loop;
+  toast(`Saved timing for ${player.name}: ${body.total_ms} ms total`);
+  player.restart();
+}
+
 // ---- Event delegation ---------------------------------------------------
 // No inline handlers anywhere: every interactive element carries a data-action
 // (plus data-* payload) and is dispatched from these three delegated listeners,
@@ -459,6 +767,9 @@ document.addEventListener('click', (e) => {
     case 'gen-estimate': genEstimate(); break;
     case 'gen-confirm': genConfirm(); break;
     case 'new-actor': uploadNewActor(); break;
+    case 'fp-toggle': playerFor(el)?.toggle(); break;
+    case 'fp-step': playerFor(el)?.step(+el.dataset.dir); break;
+    case 'fp-edit': editTiming(playerFor(el)); break;
   }
 });
 
@@ -467,9 +778,17 @@ document.addEventListener('change', (e) => {
   if (!el) return;
   if (el.dataset.action === 'speed') setSpeed(el.dataset.img, el.dataset.slug, el.dataset.filename, el.value);
   else if (el.dataset.action === 'upload-files') uploadFiles(el.dataset.slug, el.files);
+  else if (el.dataset.action === 'import-folder') importFolder(el.dataset.slug, el.files);
+  else if (el.dataset.action === 'fp-speed') playerFor(el)?.setSpeed(el.value);
+  else if (el.dataset.action === 'fp-loop') playerFor(el)?.setLoop(el.checked);
+});
+
+document.addEventListener('input', (e) => {
+  const el = e.target.closest('[data-action="fp-scrub"]');
+  if (el) playerFor(el)?.seek(+el.value);
 });
 
 document.addEventListener('input', (e) => { if (e.target.closest('.gen-form')) genDirty(); });
 document.addEventListener('submit', (e) => { if (e.target.closest('.gen-form')) e.preventDefault(); });
 
-document.addEventListener('DOMContentLoaded', genInit);
+document.addEventListener('DOMContentLoaded', () => { genInit(); initPlayers(); });

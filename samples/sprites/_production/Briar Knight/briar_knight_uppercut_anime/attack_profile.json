@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "animation": "uppercut_anime",
+  "frame_count": 12,
+  "frame_order": "row_major",
+  "cell_size_pixels": [314, 314],
+  "atlas_grid": [4, 3],
+  "root_anchor_pixels": [157, 300],
+  "loop": false,
+  "frame_delays_seconds": [0.10, 0.07, 0.07, 0.09, 0.055, 0.045, 0.040, 0.045, 0.070, 0.080, 0.090, 0.120],
+  "hit_window_frames_zero_based": [6, 7, 8],
+  "damage_event_frame_zero_based": 7,
+  "attack_direction": [1, -1],
+  "status": "provisional_until_in_game_playtest",
+  "notes": [
+    "Anime styling is presentation-only; gameplay timing remains metadata-driven.",
+    "Frames 0 and 11 are pixel-identical canonical idle frames.",
+    "The red-white crescent is confined to the strike and impact frames."
+  ]
+}
