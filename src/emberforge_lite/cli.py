@@ -4,6 +4,7 @@ emberforge-lite serve [--port 8000] [--data-dir PATH] [--allow-spend] [--env-fil
 emberforge-lite build [--data-dir PATH]
 emberforge-lite link ACTOR ANIMATION SOUND [--data-dir PATH]
 emberforge-lite migrate SOURCE [--data-dir DEST]
+emberforge-lite import SOURCE [--data-dir PATH] [--include-deprecated] [--actor SLUG]
 emberforge-lite demo [--port 8000] [--keep] [--data-dir PATH]
 """
 
@@ -15,6 +16,7 @@ from pathlib import Path
 
 from emberforge_lite import __version__, build, generate, media, server
 from emberforge_lite.config import paths_for
+from emberforge_lite.importer import ImportFailure, import_library
 from emberforge_lite.linking import add_link
 from emberforge_lite.migrate import MigrationError, migrate
 
@@ -60,6 +62,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_migrate = sub.add_parser("migrate", help="copy an existing actor tree into a data directory")
     p_migrate.add_argument("source")
     _add_data_dir(p_migrate)
+
+    p_import = sub.add_parser(
+        "import", help="copy a sprite library (one folder per character, one per animation) into the data directory"
+    )
+    p_import.add_argument("source")
+    _add_data_dir(p_import)
+    p_import.add_argument(
+        "--include-deprecated", action="store_true", help="also import animation folders marked '(deprecated)'"
+    )
+    p_import.add_argument("--actor", metavar="SLUG", default=None, help="import SOURCE as one actor with this slug")
 
     p_demo = sub.add_parser("demo", help="serve a synthetic offline demo actor")
     p_demo.add_argument("--port", type=int, default=8000)
@@ -110,6 +122,26 @@ def main(argv: list[str] | None = None) -> int:
             f"migrated {summary['copied']} file(s) across {summary['actors']} actor(s) "
             f"({summary['skipped']} excluded) into {paths.actors}"
         )
+        return 0
+
+    if args.command == "import":
+        paths = paths_for(args.data_dir)
+        try:
+            summary = import_library(args.source, paths, include_deprecated=args.include_deprecated, actor=args.actor)
+        except (ImportFailure, media.Rejected) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        build.configure_paths(paths)
+        generate.configure_paths(paths)
+        build.build()
+        print(
+            f"Imported {summary.actors} actor(s), {summary.animations} animation(s) "
+            f"({summary.frames} frames), {summary.sheets} sheet(s), {summary.sprites} sprite(s) into {paths.actors}"
+        )
+        for item in summary.skipped:
+            print(f"Skipped: {item}")
+        for item in summary.warnings:
+            print(f"Warning: {item}")
         return 0
 
     if args.command == "demo":
