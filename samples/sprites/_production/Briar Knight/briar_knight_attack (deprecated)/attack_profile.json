@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "animation": "lunge_attack",
+  "frame_count": 16,
+  "frame_order": "row_major",
+  "cell_size_pixels": [314, 314],
+  "root_anchor_pixels": [157, 300],
+  "playback_fps": 18.0,
+  "loop": false,
+  "frame_duration_multipliers": [1.5, 1.0, 1.0, 1.2, 1.0, 0.8, 0.8, 0.7, 0.65, 0.9, 0.8, 0.9, 1.0, 1.0, 1.1, 1.5],
+  "visual_root_offset_x_pixels": [0, 0, -2, -4, -6, 0, 14, 32, 56, 82, 94, 88, 64, 38, 16, 0],
+  "attack_direction": [1, 0],
+  "hit_window_frames_zero_based": [8, 9],
+  "damage_event_frame_zero_based": 9,
+  "suggested_sword_hitbox_root_local_pixels": {
+    "position": [135, -112],
+    "size": [190, 96]
+  },
+  "status": "provisional_until_in_game_playtest",
+  "notes": [
+    "Apply visual_root_offset_x_pixels to the AnimatedSprite2D child, not the combatant root node.",
+    "Resolve combat damage once on damage_event_frame_zero_based; do not let physics overlaps apply damage repeatedly.",
+    "Frames 0 and 15 are pixel-identical so the attack returns cleanly to idle."
+  ]
+}

@@ -1,7 +1,7 @@
 """Per-actor asset provenance (``provenance.json``, schema version 1).
 
-Every asset an actor holds is either **generated** (through a provider) or
-**uploaded** (dropped in by the user). For a generated asset this records the
+Every asset an actor holds is **generated** (through a provider), **uploaded**
+(dropped in by the user), or **imported** (copied from a local library). For a generated asset this records the
 provider, model, prompt, dates, rights context, attribution, transforms, and
 reported charge that the provider returned but the ledger did not keep per file.
 For an uploaded asset it records only that its rights are unknown, so the UI can
@@ -15,7 +15,7 @@ atomic, so provenance survives a rename, delete, restart, rebuild, or export.
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -91,6 +91,24 @@ def record_uploaded(actor_dir: Path, rel_path: str) -> None:
     with storage.actor_lock(slug):
         doc = load(actor_dir)
         doc["assets"][rel_path] = {"source": "uploaded", "account_rights": None}
+        _save(actor_dir, doc)
+
+
+def record_imported(actor_dir: Path, rel_path: str, *, library_path: str) -> None:
+    """Record an asset copied from a local library by ``emberforge-lite import``.
+
+    Rights are unknown, as for an upload; ``library_path`` keeps the trail back
+    to the folder it came from so a re-import or audit can find it.
+    """
+    slug = actor_dir.name
+    with storage.actor_lock(slug):
+        doc = load(actor_dir)
+        doc["assets"][rel_path] = {
+            "source": "imported",
+            "account_rights": None,
+            "library_path": library_path,
+            "imported_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        }
         _save(actor_dir, doc)
 
 

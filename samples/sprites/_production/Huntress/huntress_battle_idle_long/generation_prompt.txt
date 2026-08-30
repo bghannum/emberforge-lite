@@ -1,0 +1,9 @@
+Use case: stylized-concept
+Asset type: production source atlas for a 2D pixel-art battle-idle animation
+Input image: the provided Huntress PNG is the strict character, costume, palette, pixel-art style, facing direction, proportions, bow, and silhouette reference.
+Primary request: Create one ordered 28-frame, 7-column by 4-row, row-major atlas for a seamless restrained combat idle. Keep both boots planted and the bow low. Animate gentle breathing, a subtle forward weight shift, a few-pixel bow rotation, a small hand readiness adjustment without drawing, soft asynchronous hair motion, a restrained head/shoulder scan, and a progressive exact return to the opening pose.
+Scene/backdrop: genuine transparent background in every cell.
+Style/medium: preserve crisp hand-authored pixel art, hard pixel edges, red hair, green-and-gold armor, and gold bow.
+Composition/framing: one centered full-body character per equal cell, consistent scale, clear padding, stable baseline/root, no visible grid or labels.
+Constraints: no arrow; stable identity/equipment; readable face and hands; feet never slide; only subtle motion; seamless loop; true alpha.
+Avoid: attacks, arrow flourishes/tosses, bow draw, walking, foot lifts, dramatic changes, camera changes, redesign, extra limbs/weapons, blur, antialiasing, checkerboard.

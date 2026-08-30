@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "animation": "rose_bloom",
+  "frame_count": 16,
+  "frame_order": "row_major",
+  "cell_size_pixels": [314, 314],
+  "root_anchor_pixels": [157, 300],
+  "loop": false,
+  "visual_peak_frame_zero_based": 12,
+  "resulting_visual_state": "rosebound_idle",
+  "frame_delays_seconds": [0.08, 0.07, 0.07, 0.07, 0.07, 0.07, 0.07, 0.07, 0.08, 0.08, 0.08, 0.09, 0.10, 0.10, 0.12, 0.16],
+  "status": "provisional_until_in_game_playtest",
+  "notes": [
+    "The animation begins on the shared canonical Briar Knight idle.",
+    "Frame 15 is a persistent rosebound idle, not a return to the unmodified idle.",
+    "This package is presentation-only and does not define a new combat keyword or mechanical status."
+  ]
+}

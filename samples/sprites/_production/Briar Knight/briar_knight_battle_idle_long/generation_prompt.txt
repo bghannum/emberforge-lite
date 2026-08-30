@@ -1,0 +1,9 @@
+Use case: stylized-concept
+Asset type: production source atlas for a 2D pixel-art battle-idle animation
+Input image: the provided Briar Knight PNG is the strict character, costume, palette, pixel-art style, facing direction, proportions, sword, cape, and silhouette reference.
+Primary request: Create one ordered 28-frame, 7-column by 4-row, row-major atlas for a seamless restrained combat idle. Keep both boots planted. Animate tiny armored breathing, a subtle forward weight shift, tightening sword hand, a few-pixel sword-tip adjustment, a small free-hand grip adjustment, cape lag, a restrained helmet/shoulder readiness motion, and a progressive exact return to the opening pose. Keep the sword low and avoid attacks or flourishes.
+Scene/backdrop: genuine transparent background in every cell.
+Style/medium: preserve crisp hand-authored pixel art, hard pixel edges, white/silver armor, gold trim, red roses, red cape, and horned helmet.
+Composition/framing: one centered full-body character per equal cell, consistent scale, clear padding, stable baseline/root, no visible grid or labels.
+Constraints: stable identity/equipment; readable helmet and grip; feet never slide; only subtle motion; seamless loop; true alpha.
+Avoid: attacks, large sword raises, tosses, walking, foot lifts, dramatic changes, camera changes, redesign, extra limbs/weapons, blur, antialiasing, checkerboard.

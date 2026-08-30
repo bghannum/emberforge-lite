@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "animation": "battle_idle",
+  "frame_count": 28,
+  "frame_order": "row_major",
+  "atlas_grid": [7, 4],
+  "cell_size_pixels": [314, 314],
+  "root_anchor_pixels": [106, 252],
+  "loop": true,
+  "resulting_visual_state": "canonical_idle",
+  "frame_delays_seconds": [0.160, 0.110, 0.100, 0.110, 0.120, 0.110, 0.100, 0.110, 0.120, 0.110, 0.100, 0.110, 0.120, 0.110, 0.100, 0.110, 0.120, 0.110, 0.100, 0.110, 0.120, 0.110, 0.100, 0.110, 0.120, 0.110, 0.120, 0.160],
+  "notes": ["Frames 0 and 27 are pixel-identical canonical idle frames.", "Visual idle only; no gameplay event hooks."]
+}

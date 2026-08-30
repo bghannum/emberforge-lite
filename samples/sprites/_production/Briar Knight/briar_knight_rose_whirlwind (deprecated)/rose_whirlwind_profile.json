@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "animation": "rose_whirlwind",
+  "frame_count": 16,
+  "frame_order": "row_major",
+  "cell_size_pixels": [314, 314],
+  "root_anchor_pixels": [157, 300],
+  "loop": false,
+  "clockwise": true,
+  "visual_peak_frame_zero_based": 10,
+  "resulting_visual_state": "canonical_idle",
+  "frame_delays_seconds": [0.08, 0.06, 0.06, 0.06, 0.06, 0.06, 0.07, 0.07, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.10, 0.14],
+  "status": "provisional_until_in_game_playtest",
+  "notes": [
+    "Frames 0 and 15 are pixel-identical shared canonical Briar Knight idle frames.",
+    "The roses, thorns, petals, and gold sparkles are presentation-only and make a compact clockwise whirlwind around the knight.",
+    "The controller emits summon_visual_peak at frame 10, then returns to the canonical idle after the animation completes."
+  ]
+}
