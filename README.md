@@ -2,8 +2,9 @@
 
 A small, dependency-free, local-first workbench for reviewing pixel-art game
 characters. For each **actor** you see its sprites and animations, hear each
-sound *against* the animation it belongs to, and — when you choose to — generate
-new assets through provider APIs, without leaving the page.
+sound *against* the animation it belongs to, import a whole sprite library with
+its per-frame timing intact, and — when you choose to — generate new assets
+through provider APIs, without leaving the page.
 
 ![The evil-treant actor page in Emberforge Lite: two source sprites, the root-slam animation with a speed dial, and the offline generate panel.](docs/images/actor-page.jpg)
 
@@ -29,6 +30,13 @@ pipx install git+https://github.com/bghannum/emberforge-lite.git@v0.1.0
 
 ```bash
 emberforge-lite demo
+```
+
+Or import the bundled sprite library — three characters, eighteen animations,
+each with its authored per-frame delays — and serve it:
+
+```bash
+emberforge-lite import samples/sprites --data-dir /tmp/efl && emberforge-lite serve --data-dir /tmp/efl
 ```
 
 This serves the **evil-treant** sample actor on `http://127.0.0.1:8000/` with no
@@ -85,13 +93,17 @@ whole character folder and it lands as frame packages on that actor.
 
 ## What's on an actor page
 
-Upload (files are sorted by extension, names sanitized, collisions suffixed);
-sprites; animations with a **speed dial** that rewrites GIF delays on the fly
-(the file on disk is untouched), a **▶ Play with sound** pill per linked sound in
-lockstep with the audio, **✂ trim** and **× unlink**, a **link a sound** picker,
-and a **sheet** download; rename/delete on every asset (kept in step with
-`links.json`, sibling spritesheets, and provenance); **export** to a zip; and a
-**Generate** panel. Each asset carries a badge — **generated**, **uploaded**, or
+Upload (files are sorted by extension, names sanitized, collisions suffixed) and
+**Import a folder**; sprites; animations — GIFs with a **speed dial** that
+rewrites delays on the fly (the file on disk is untouched), and **frame
+packages** played on a canvas with their exact per-frame timing: play/pause,
+step, scrub, speed, a loop toggle, hold-last on one-shot actions, and a
+**Timing** editor that writes the delays back to the manifest. Every animation
+has a **▶ Play with sound** pill per linked sound in lockstep with the audio,
+**✂ trim** and **× unlink**, a **link a sound** picker, and a **sheet** download;
+rename/delete on every asset (kept in step with `links.json`, sibling
+spritesheets, and provenance); **export** to a zip; and a **Generate** panel.
+Each asset carries a badge — **generated**, **uploaded**, **imported**, or
 **rights unknown** — so borrowed art is never mistaken for your own. Every change
 rebuilds the pages from disk, so what you see is what is on disk.
 
@@ -129,6 +141,7 @@ Full model: [docs/threat-model.md](docs/threat-model.md).
 ```
 emberforge-lite serve
    ├── web layer     server.py, build.py, static/app.{css,js}   (strict CSP, no inline JS)
+   ├── import        importer.py (layout adapters), animmeta.py (manifests + timing), sheets.py
    ├── generation    generate.py, providers/ (spritelab, openai_images, elevenlabs, fakes)
    └── storage       storage.py (per-actor locks + atomic writes), provenance.py, logs.py
                           ▼
