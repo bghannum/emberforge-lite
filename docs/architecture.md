@@ -84,6 +84,14 @@ decoding a GIF is explicit. Timing precedence is README delays (ms, exact) >
 suffixed ` (deprecated)` are skipped unless `--include-deprecated`; `_production`
 and OS metadata are never imported. Re-running replaces each package in place.
 
+The browser path is `POST /import/<slug>` with a `multipart/form-data` body
+whose part filenames are paths relative to the picked folder
+(`webkitRelativePath`). The parts are staged under `tmp/` by
+`importer.stage_uploaded_files`, which confines every path component, keeps only
+frame PNGs, preview GIFs, READMEs, and JSON, and requires a single top-level
+folder; the staged folder then goes through `importer.import_folder`, the same
+code the CLI uses, and the staging directory is removed whatever happens.
+
 Link, rename, delete, and export treat a package like a GIF animation: links are
 keyed by the directory name, `sheet_for` resolves `sheets/<name>_sheet.png`, and
 delete removes the directory, its sheet, links, and provenance as one locked step.

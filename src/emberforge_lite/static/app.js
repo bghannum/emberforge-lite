@@ -200,6 +200,39 @@ async function uploadFiles(slug, fileList) {
   location.href = `actor-${encodeURIComponent(slug)}.html`;
 }
 
+// Folder import: the file input carries `webkitdirectory`, so each File has a
+// webkitRelativePath under the picked folder. Send them as one multipart body
+// (filename = relative path); the server stages and imports the folder with
+// the same code path as `emberforge-lite import`.
+async function importFolder(slug, fileList) {
+  const files = Array.from(fileList);
+  if (!files.length) return;
+  const form = new FormData();
+  let total = 0;
+  for (const file of files) {
+    const rel = file.webkitRelativePath || file.name;
+    if (rel.split('/').some(p => p.startsWith('.'))) continue;   // .DS_Store and friends
+    form.append('file', file, rel);
+    total += file.size;
+  }
+  toast(`Importing ${files.length} files…`);
+  const res = await fetch(`/import/${encodeURIComponent(slug)}`, { method: 'POST', body: form });
+  if (!res.ok) {
+    let detail = await res.text();
+    try { detail = JSON.parse(detail).error || detail; } catch (_) { /* plain text */ }
+    toast(`Import failed: ${detail}`, true);
+    return;
+  }
+  const body = await res.json();
+  const notes = [...body.skipped, ...body.warnings];
+  if (!body.animations && !body.sprites) {
+    toast(`Nothing imported. ${notes.join(' · ')}`, true);
+    return;
+  }
+  toast(`Imported ${body.animations} animation(s), ${body.frames} frames` + (notes.length ? ` · ${notes.length} note(s)` : ''));
+  setTimeout(() => { location.href = `actor-${encodeURIComponent(slug)}.html`; }, notes.length ? 1500 : 400);
+}
+
 function uploadNewActor() {
   const slug = document.getElementById('new-actor-slug').value.trim();
   const files = document.getElementById('new-actor-files').files;
@@ -745,6 +778,7 @@ document.addEventListener('change', (e) => {
   if (!el) return;
   if (el.dataset.action === 'speed') setSpeed(el.dataset.img, el.dataset.slug, el.dataset.filename, el.value);
   else if (el.dataset.action === 'upload-files') uploadFiles(el.dataset.slug, el.files);
+  else if (el.dataset.action === 'import-folder') importFolder(el.dataset.slug, el.files);
   else if (el.dataset.action === 'fp-speed') playerFor(el)?.setSpeed(el.value);
   else if (el.dataset.action === 'fp-loop') playerFor(el)?.setLoop(el.checked);
 });

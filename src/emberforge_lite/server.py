@@ -35,12 +35,14 @@ import secrets
 import shutil
 import tempfile
 import zipfile
+from email import policy
+from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from emberforge_lite import animmeta, audiotools, build, generate, logs, media, provenance, storage
+from emberforge_lite import animmeta, audiotools, build, generate, importer, logs, media, provenance, storage
 from emberforge_lite.gifspeed import slow_gif
 from emberforge_lite.linking import (
     add_link,
@@ -54,6 +56,7 @@ from emberforge_lite.naming import sanitize_filename, sanitize_slug, unique_path
 
 ROOT = Path(__file__).parent
 ACTORS_DIR = ROOT / "actors"
+TMP_DIR = ROOT / "tmp"
 
 #: Packaged CSS/JS, served read-only at /static/.
 STATIC_DIR = Path(__file__).parent / "static"
@@ -61,9 +64,10 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 def configure_paths(paths) -> None:
     """Serve pages from ``paths.site`` and actor media from ``paths.actors``."""
-    global ROOT, ACTORS_DIR
+    global ROOT, ACTORS_DIR, TMP_DIR
     ROOT = paths.site
     ACTORS_DIR = paths.actors
+    TMP_DIR = paths.tmp
 
 
 #: Upload ceiling. Overridable by the environment; the CLI gains a flag in
@@ -150,6 +154,38 @@ def sheet_for(actor_dir: Path, gif_name: str) -> Path | None:
         stem = stem[: -len("_preview")]
     candidate = actor_dir / "sheets" / f"{stem}_sheet.png"
     return candidate if candidate.is_file() else None
+
+
+def _parse_multipart(content_type: str, body: bytes):
+    """Yield the parts of a multipart/form-data body via the stdlib email parser."""
+    if "boundary=" not in content_type:
+        raise ValueError("multipart body without a boundary")
+    msg = BytesParser(policy=policy.default).parsebytes(
+        b"Content-Type: " + content_type.encode("latin-1", "replace") + b"\r\nMIME-Version: 1.0\r\n\r\n" + body
+    )
+    if not msg.is_multipart():
+        raise ValueError("malformed multipart body")
+    return msg.iter_parts()
+
+
+def _parse_multipart_files(content_type: str, body: bytes) -> list[tuple[str, bytes]]:
+    files: list[tuple[str, bytes]] = []
+    for part in _parse_multipart(content_type, body):
+        filename = part.get_filename()
+        if filename:
+            files.append((filename, part.get_payload(decode=True) or b""))
+    return files
+
+
+def _multipart_fields(content_type: str, body: bytes) -> list[tuple[str, str]]:
+    fields: list[tuple[str, str]] = []
+    for part in _parse_multipart(content_type, body):
+        if part.get_filename():
+            continue
+        name = part.get_param("name", header="content-disposition")
+        if name:
+            fields.append((str(name), (part.get_payload(decode=True) or b"").decode("utf-8", "replace").strip()))
+    return fields
 
 
 def _animation_exists(actor_dir: Path, name: str) -> bool:
@@ -600,6 +636,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_rename()
         elif path == "/timing":
             self._guard(self._handle_timing)
+        elif path.startswith("/import/"):
+            self._guard(self._handle_import, path)
         elif path == "/rebuild":
             self._respond(200, {"actors": build.build()})
         elif path == "/estimate":
@@ -765,6 +803,70 @@ class Handler(BaseHTTPRequestHandler):
             animmeta.save_manifest(package, manifest)
         logs.event("timing", actor=slug, operation="timing", outcome="ok", filename=name)
         self._respond(200, {"animation": name, "total_ms": manifest.total_ms(), "actors": build.build()})
+
+    def _handle_import(self, path: str) -> None:
+        """Import a folder the browser uploaded as multipart/form-data.
+
+        Each part's filename is its path relative to the picked folder
+        (``webkitRelativePath``). The parts are staged under tmp/, confined and
+        filtered by importer.stage_uploaded_files, then imported exactly as the
+        CLI would import that folder from disk.
+        """
+        parts = [unquote(p) for p in path.strip("/").split("/")]
+        if len(parts) != 2:
+            raise generate.GenerateError(404, "not found")
+        slug = sanitize_slug(parts[1])
+        if not slug:
+            raise ValueError("invalid slug")
+        length = int(self.headers.get("Content-Length", 0))
+        if length <= 0:
+            raise ValueError("empty body")
+        if length > MAX_UPLOAD_BYTES:
+            raise generate.GenerateError(413, "upload too large")
+        content_type = self.headers.get("Content-Type", "")
+        if not content_type.startswith("multipart/form-data"):
+            raise ValueError("expected multipart/form-data")
+        body = self.rfile.read(length)
+        files = _parse_multipart_files(content_type, body)
+        include_deprecated = any(
+            name == "include_deprecated" and value == "1" for name, value in _multipart_fields(content_type, body)
+        )
+
+        TMP_DIR.mkdir(parents=True, exist_ok=True)
+        staging = Path(tempfile.mkdtemp(dir=TMP_DIR, prefix=f"{storage.TMP_PREFIX}import-"))
+        try:
+            try:
+                folder = importer.stage_uploaded_files(files, staging)
+                actor_dir = ACTORS_DIR / slug
+                actor_dir.mkdir(parents=True, exist_ok=True)
+                summary = importer.ImportSummary()
+                importer.import_folder(
+                    folder,
+                    actor_dir,
+                    library_root=staging,
+                    include_deprecated=include_deprecated,
+                    summary=summary,
+                    library_label="browser upload",
+                )
+            except (importer.ImportFailure, media.Rejected) as exc:
+                logs.event("import", actor=slug, operation="import", outcome="rejected", error=str(exc))
+                raise generate.GenerateError(400, str(exc)) from exc
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
+        actor_count = build.build()
+        logs.event("import", actor=slug, operation="import", outcome="ok", animations=summary.animations)
+        self._respond(
+            200,
+            {
+                "slug": slug,
+                "animations": summary.animations,
+                "frames": summary.frames,
+                "sprites": summary.sprites,
+                "skipped": summary.skipped,
+                "warnings": summary.warnings,
+                "actors": actor_count,
+            },
+        )
 
     def _handle_estimate(self) -> None:
         payload = self._read_json()

@@ -20,6 +20,9 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A canvas frame-stepping player for packages (play/pause, step, scrub, speed,
   loop toggle, hold-last on non-looping animations) and a per-frame timing
   editor that persists through `POST /timing`.
+- An "Import a folder" widget on each actor page: pick or drop an animation
+  folder (or a whole character folder) and it is imported through
+  `POST /import/<slug>` exactly as the CLI would import it from disk.
 - Trim a sound with a dual-handle range slider instead of typing a range.
 
 ### Changed

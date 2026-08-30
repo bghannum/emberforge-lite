@@ -217,7 +217,9 @@ def _frame_size(path: Path) -> tuple[int, int]:
     return width, height
 
 
-def import_animation(src: FramesSource, actor_dir: Path, *, library_root: Path) -> Path:
+def import_animation(
+    src: FramesSource, actor_dir: Path, *, library_root: Path, library_label: str | None = None
+) -> Path:
     """Write one package under ``actor_dir/animations/<name>/`` and its sheet."""
     if not src.frame_paths:
         raise media.Rejected("no frames")
@@ -258,7 +260,7 @@ def import_animation(src: FramesSource, actor_dir: Path, *, library_root: Path) 
         source={
             "kind": src.source_kind,
             "path": rel_source,
-            "library": str(library_root),
+            "library": library_label or str(library_root),
             "timing_source": src.timing.source,
             "deprecated": src.deprecated,
             "imported_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
@@ -294,6 +296,123 @@ def dedupe_idle(character_dir: Path, actor_dir: Path) -> Path | None:
     return target
 
 
+#: What a browser folder upload may contain: enough for one character or one
+#: animation package, nothing an archive would carry.
+MAX_UPLOAD_FILES = 512
+_UPLOAD_EXTS = {".png", ".gif", ".md", ".json"}
+
+
+def _safe_component(part: str) -> bool:
+    """One path segment from the browser: a plain name, no traversal or control bytes.
+
+    Spaces and parentheses are legitimate (``hero_run (deprecated)``), so this
+    is deliberately looser than naming.sanitize_filename, which is for names
+    we will write into the actor tree; staged paths never leave tmp/.
+    """
+    if part in ("", ".", "..") or len(part) > 255:
+        return False
+    if any(ord(c) < 32 or c in "/\\\x7f" for c in part):
+        return False
+    return Path(part).name == part
+
+
+def stage_uploaded_files(files: list[tuple[str, bytes]], staging: Path) -> Path:
+    """Materialise browser-uploaded ``(relative path, bytes)`` pairs under `staging`.
+
+    Paths come from the client (``webkitRelativePath``), so every component is
+    sanitised and confined; only frame PNGs, preview GIFs, READMEs, and JSON
+    are kept, and everything must share one top-level folder, which is returned.
+    """
+    if not files:
+        raise ImportFailure("no files were uploaded")
+    if len(files) > MAX_UPLOAD_FILES:
+        raise ImportFailure(f"{len(files)} files exceeds the {MAX_UPLOAD_FILES}-file limit for a folder upload")
+    top: str | None = None
+    for rel, data in files:
+        parts = [p for p in rel.replace("\\", "/").split("/") if p not in ("", ".")]
+        if not parts or any(not _safe_component(p) for p in parts):
+            raise ImportFailure(f"unsafe path in upload: {rel!r}")
+        if len(parts) > 4:
+            raise ImportFailure(f"path too deep in upload: {rel!r}")
+        if top is None:
+            top = parts[0]
+        elif parts[0] != top:
+            raise ImportFailure("upload one folder at a time")
+        if any(p.startswith(".") for p in parts) or Path(parts[-1]).suffix.lower() not in _UPLOAD_EXTS:
+            continue  # OS metadata, archives, tools: not part of a package
+        if len(data) > media.MAX_FILE_BYTES:
+            raise ImportFailure(f"{rel} exceeds the {media.MAX_FILE_BYTES}-byte limit")
+        target = staging.joinpath(*parts)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    if top is None or not (staging / top).is_dir():
+        raise ImportFailure("the upload held no importable files")
+    return staging / top
+
+
+def import_folder(
+    folder: Path,
+    actor_dir: Path,
+    *,
+    library_root: Path,
+    include_deprecated: bool = False,
+    summary: ImportSummary,
+    library_label: str | None = None,
+) -> None:
+    """Import `folder` into an existing actor: one animation package, or a character's worth.
+
+    `library_label` replaces the on-disk library path in each manifest's
+    ``source.library`` when the folder is a transient staging copy.
+    """
+    if detect_adapter(folder) is not None:
+        _import_animation_folder(
+            folder, actor_dir, folder.name, library_root, include_deprecated, summary, library_label=library_label
+        )
+        return
+    if not _looks_like_character(folder):
+        raise ImportFailure(f"{folder.name} holds neither an animation (frames/*.png) nor animation folders")
+    import_character(
+        folder,
+        actor_dir.parent,
+        slug=actor_dir.name,
+        include_deprecated=include_deprecated,
+        library_root=library_root,
+        summary=summary,
+        library_label=library_label,
+    )
+
+
+def _import_animation_folder(
+    folder: Path,
+    actor_dir: Path,
+    rel: str,
+    library_root: Path,
+    include_deprecated: bool,
+    summary: ImportSummary,
+    *,
+    library_label: str | None = None,
+) -> None:
+    adapter = detect_adapter(folder)
+    if adapter is None:
+        summary.skipped.append(f"{rel} [no recognised layout]")
+        return
+    if is_deprecated(folder) and not include_deprecated:
+        summary.skipped.append(f"{rel} [deprecated]")
+        return
+    try:
+        src = adapter.load(folder, library_root=library_root, warnings=summary.warnings)
+        import_animation(src, actor_dir, library_root=library_root, library_label=library_label)
+    except NotImplementedError as exc:
+        summary.skipped.append(f"{rel} [{adapter.kind}: {exc}]")
+        return
+    except (media.Rejected, animmeta.ManifestError, ImportFailure, OSError) as exc:
+        summary.skipped.append(f"{rel} [rejected: {exc}]")
+        return
+    summary.animations += 1
+    summary.frames += len(src.frame_paths)
+    summary.sheets += 1
+
+
 def _animation_folders(character_dir: Path) -> list[Path]:
     return sorted(
         p
@@ -314,6 +433,7 @@ def import_character(
     include_deprecated: bool = False,
     library_root: Path,
     summary: ImportSummary,
+    library_label: str | None = None,
 ) -> str:
     slug = slug or sanitize_slug(character_dir.name)
     if not slug:
@@ -326,26 +446,15 @@ def import_character(
         summary.sprites += 1
 
     for folder in _animation_folders(character_dir):
-        rel = f"{label}/{folder.name}"
-        adapter = detect_adapter(folder)
-        if adapter is None:
-            summary.skipped.append(f"{rel} [no recognised layout]")
-            continue
-        if is_deprecated(folder) and not include_deprecated:
-            summary.skipped.append(f"{rel} [deprecated]")
-            continue
-        try:
-            src = adapter.load(folder, library_root=library_root, warnings=summary.warnings)
-            import_animation(src, actor_dir, library_root=library_root)
-        except NotImplementedError as exc:
-            summary.skipped.append(f"{rel} [{adapter.kind}: {exc}]")
-            continue
-        except (media.Rejected, animmeta.ManifestError, ImportFailure, OSError) as exc:
-            summary.skipped.append(f"{rel} [rejected: {exc}]")
-            continue
-        summary.animations += 1
-        summary.frames += len(src.frame_paths)
-        summary.sheets += 1
+        _import_animation_folder(
+            folder,
+            actor_dir,
+            f"{label}/{folder.name}",
+            library_root,
+            include_deprecated,
+            summary,
+            library_label=library_label,
+        )
     summary.actors += 1
     return slug
 

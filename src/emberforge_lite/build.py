@@ -98,6 +98,12 @@ EXPORT_ICON = (
     'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>'
 )
+FOLDER_ICON = (
+    '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" '
+    'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>'
+    '<path d="M12 11v5M9.5 13.5L12 11l2.5 2.5"/></svg>'
+)
 NO_SOUND_HTML = '<div class="no-sound">no sound linked yet</div>'
 SCISSORS_ICON = (
     '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" '
@@ -399,6 +405,14 @@ def render_actor(actor_dir: Path) -> str:
               <div class="upload-hint">Sorted automatically &mdash; .gif to animations, images to sprites, audio to sounds</div>
             </div>
             <input type="file" multiple data-action="upload-files" data-slug="{esc_slug}">
+          </div>
+          <div class="upload-widget import-widget" data-slug="{esc_slug}" title="Pick or drop an animation folder (frames/*.png + README) or a whole character folder">
+            <div class="upload-icon">{FOLDER_ICON}</div>
+            <div>
+              <div class="upload-title">Import a folder</div>
+              <div class="upload-hint">frames/ + README &rarr; a frame package with per-frame timing</div>
+            </div>
+            <input type="file" multiple webkitdirectory data-action="import-folder" data-slug="{esc_slug}">
           </div>
           <a class="btn-ghost" href="/export/{esc_slug}">{EXPORT_ICON} Export</a>
         </div>

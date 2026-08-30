@@ -79,6 +79,10 @@ step/scrub/speed controls, and a timing editor that writes back to the manifest.
 Timing is read from the README first, then an archived `_production` profile
 JSON, then the preview GIF; `(deprecated)` folders are skipped by default.
 
+The same works in the browser: each actor page has an **Import a folder**
+dropzone next to the file uploader. Pick (or drop) one animation folder or a
+whole character folder and it lands as frame packages on that actor.
+
 ## What's on an actor page
 
 Upload (files are sorted by extension, names sanitized, collisions suffixed);
