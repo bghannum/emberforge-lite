@@ -1,5 +1,10 @@
 # Pips & Peril sprite library
 
+Import this whole library into emberforge-lite with
+`emberforge-lite import samples/sprites` (add `--include-deprecated` to keep the
+deprecated Briar Knight packages). Each animation becomes a frame package that
+plays with the per-frame delays declared in its README.
+
 ## Character layout
 
 Each character directory keeps its canonical gameplay idle at the character root:

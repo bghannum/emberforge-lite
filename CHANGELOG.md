@@ -6,6 +6,32 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `emberforge-lite import SOURCE [--include-deprecated] [--actor SLUG]` copies a
+  sprite library (one folder per character, one per animation with
+  `frames/*.png`) into the data directory as actors and *frame packages*.
+  Per-frame timing is taken, in order of trust, from the animation's README,
+  an archived `*_profile.json`, the preview GIF, or a uniform fallback;
+  `(deprecated)` folders and `_production/` archives are skipped.
+- Frame packages: `animations/<name>/manifest.json` + `frames/` with exact
+  per-frame delays in milliseconds, a composed `sheets/<name>_sheet.png`, and
+  an "imported" provenance badge.
+- A canvas frame-stepping player for packages (play/pause, step, scrub, speed,
+  loop toggle, hold-last on non-looping animations) and a per-frame timing
+  editor that persists through `POST /timing`.
+- Trim a sound with a dual-handle range slider instead of typing a range.
+
+### Changed
+
+- Rename, delete, link, trim-and-link, and export handle frame packages as
+  well as GIF animations.
+
+### Fixed
+
+- A rejected upload's temporary file is removed before the 400 is sent, so a
+  client listing the directory the moment it sees the error never observes it.
+
 ## [0.1.0] - 2026-08-29
 
 ### Added

@@ -59,6 +59,26 @@ emberforge-lite` on macOS, `$XDG_DATA_HOME/emberforge-lite` on Linux):
 Already have an actor tree from an earlier version? Copy it in without touching
 the source: `emberforge-lite migrate /old/path --data-dir <data-dir>`.
 
+### Import a sprite library
+
+Have a folder of characters, each with one folder per animation holding
+`frames/frame_00.png …` and a README that states the per-frame delays (the
+layout under `samples/sprites/`)? Point the importer at it:
+
+```bash
+emberforge-lite import samples/sprites            # one actor per character
+emberforge-lite import samples/sprites --include-deprecated
+emberforge-lite import "path/to/Huntress" --actor huntress
+```
+
+Every animation becomes a *frame package* (`animations/<name>/manifest.json` +
+`frames/`) with its exact per-frame timing in milliseconds — which a GIF cannot
+hold — plus a composed spritesheet under `sheets/`. The actor page plays
+packages on a canvas with per-frame timing, hold-last for non-looping actions,
+step/scrub/speed controls, and a timing editor that writes back to the manifest.
+Timing is read from the README first, then an archived `_production` profile
+JSON, then the preview GIF; `(deprecated)` folders are skipped by default.
+
 ## What's on an actor page
 
 Upload (files are sorted by extension, names sanitized, collisions suffixed);

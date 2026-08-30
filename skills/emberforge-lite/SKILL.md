@@ -32,6 +32,7 @@ emberforge-lite serve [--port 8000] [--data-dir PATH]      # review workbench (o
 emberforge-lite build [--data-dir PATH]                     # regenerate the static site
 emberforge-lite link ACTOR ANIMATION SOUND [--data-dir PATH]
 emberforge-lite migrate SOURCE [--data-dir DEST]
+emberforge-lite import SOURCE [--data-dir PATH] [--include-deprecated] [--actor SLUG]   # sprite library -> actors
 emberforge-lite demo                                        # offline synthetic actor
 ```
 

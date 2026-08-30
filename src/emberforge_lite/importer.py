@@ -110,7 +110,7 @@ def _production_profile(folder: Path, library_root: Path, name: str, warnings: l
             warnings.append(f"{rel}: unreadable {candidate.name}; ignored")
             continue
         declared = doc.get("animation") if isinstance(doc, dict) else None
-        if isinstance(declared, str) and (name == declared or name.endswith("_" + declared)):
+        if isinstance(declared, str) and declared and f"_{declared}_" in f"_{name}_":
             return doc
         warnings.append(f"{rel}: {candidate.name} names {declared!r}, not this animation; ignored")
     return None
