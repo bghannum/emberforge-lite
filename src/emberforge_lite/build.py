@@ -4,7 +4,7 @@ actor. No dependencies, stdlib only.
 
 Convention, per actor folder under actors/<slug>/:
     sprites/            images: png, jpg, jpeg, webp
-    animations/         gifs
+    animations/         gifs, plus one directory per frame package (manifest.json + frames/)
     sounds/             audio: mp3, wav, ogg, m4a
     sheets/             spritesheets paired with generated animations (not rendered as cards)
     links.json          {"animation_filename": ["sound_filename", ...]}, optional
@@ -24,7 +24,7 @@ import html
 import json
 from pathlib import Path
 
-from emberforge_lite import media, provenance, storage
+from emberforge_lite import animmeta, media, provenance, storage
 
 # ROOT is the site directory where generated pages are written; ACTORS_DIR is
 # where actor folders live. They are set to a real data-dir layout by
@@ -156,10 +156,15 @@ def load_links(actor_dir: Path) -> dict[str, list[str]]:
     return json.loads(links_file.read_text())
 
 
+def animation_count(actor_dir: Path) -> int:
+    return len(list_media(actor_dir / "animations", IMAGE_EXTS)) + len(animmeta.list_packages(actor_dir / "animations"))
+
+
 def asset_count(actor_dir: Path) -> int:
-    return sum(
-        len(list_media(actor_dir / cat, exts))
-        for cat, exts in (("sprites", IMAGE_EXTS), ("animations", IMAGE_EXTS), ("sounds", AUDIO_EXTS))
+    return (
+        len(list_media(actor_dir / "sprites", IMAGE_EXTS))
+        + animation_count(actor_dir)
+        + len(list_media(actor_dir / "sounds", AUDIO_EXTS))
     )
 
 
@@ -187,6 +192,9 @@ def provenance_badge(assets: dict, category: str, filename: str) -> str:
     if entry.get("source") == "generated":
         provider = html.escape(str(entry.get("provider") or "provider"))
         return f'<span class="prov-badge prov-generated" title="Generated via {provider}">generated</span>'
+    if entry.get("source") == "imported":
+        origin = html.escape(str(entry.get("library_path") or "a local library"), quote=True)
+        return f'<span class="prov-badge prov-uploaded" title="Imported from {origin}; rights unknown.">imported</span>'
     return (
         '<span class="prov-badge prov-uploaded" '
         'title="Uploaded by you; rights unknown. Verify before redistribution.">uploaded</span>'
@@ -197,6 +205,7 @@ def render_actor(actor_dir: Path) -> str:
     slug = actor_dir.name
     sprites = list_media(actor_dir / "sprites", IMAGE_EXTS)
     animations = list_media(actor_dir / "animations", IMAGE_EXTS)
+    packages = animmeta.list_packages(actor_dir / "animations")
     sounds = list_media(actor_dir / "sounds", AUDIO_EXTS)
     links = load_links(actor_dir)
     prov_assets = provenance.load(actor_dir).get("assets", {})
@@ -227,20 +236,19 @@ def render_actor(actor_dir: Path) -> str:
         f'<option value="{html.escape(p.name, quote=True)}">{html.escape(p.name)}</option>' for p in sprites
     )
     anim_options = "".join(
-        f'<option value="{html.escape(p.name, quote=True)}">{html.escape(p.name)}</option>' for p in animations
+        f'<option value="{html.escape(p.name, quote=True)}">{html.escape(p.name)}</option>'
+        for p in sorted(animations + packages, key=lambda p: p.name)
     )
 
-    anim_html = ""
-    for i, p in enumerate(animations):
-        img_id = f"anim-{esc_slug}-{i}"
-        linked = links.get(p.name, [])
-        stem = p.stem[: -len("_preview")] if p.stem.endswith("_preview") else p.stem
+    def sheet_link_for(stem: str) -> str:
         sheet = actor_dir / "sheets" / f"{stem}_sheet.png"
-        sheet_link = (
-            f'<a class="sheet-link" href="{rel(sheet)}" download title="Download spritesheet">sheet</a>'
-            if sheet.is_file()
-            else ""
-        )
+        if not sheet.is_file():
+            return ""
+        return f'<a class="sheet-link" href="{rel(sheet)}" download title="Download spritesheet">sheet</a>'
+
+    def sound_controls(i: int, img_id: str, anim_name: str) -> str:
+        """Sound pills + link control for one animation card (GIF or package)."""
+        linked = links.get(anim_name, [])
         buttons = ""
         for j, s in enumerate(linked):
             sound_path = actor_dir / "sounds" / s
@@ -258,10 +266,10 @@ def render_actor(actor_dir: Path) -> str:
                 f'<span class="sound-pill-name">{html.escape(s)}</span>{dur_html}'
                 f"</button>"
                 f'<div class="asset-actions">'
-                f"{trim_button_html(esc_slug, s, duration, p.name)}"
+                f"{trim_button_html(esc_slug, s, duration, anim_name)}"
                 f'<button type="button" class="icon-btn icon-btn-danger" title="Unlink from this animation" '
                 f'data-action="unlink" data-slug="{esc_slug}" '
-                f'data-animation="{html.escape(p.name, quote=True)}" data-sound="{html.escape(s, quote=True)}">'
+                f'data-animation="{html.escape(anim_name, quote=True)}" data-sound="{html.escape(s, quote=True)}">'
                 f"{UNLINK_ICON}</button>"
                 f"</div></div>"
             )
@@ -270,12 +278,18 @@ def render_actor(actor_dir: Path) -> str:
             f'<select id="link-select-{esc_slug}-{i}">{unlinked_options}</select>'
             f'<button type="button" class="link-btn" '
             f'data-action="link" data-slug="{esc_slug}" '
-            f'data-animation="{html.escape(p.name, quote=True)}" data-select="link-select-{esc_slug}-{i}">'
+            f'data-animation="{html.escape(anim_name, quote=True)}" data-select="link-select-{esc_slug}-{i}">'
             f"{LINK_ICON} Link</button>"
             f"</div>"
             if unlinked_options
             else ""
         )
+        return f'<div class="sound-pills">{buttons or NO_SOUND_HTML}</div>{link_control}'
+
+    anim_html = ""
+    for i, p in enumerate(animations):
+        img_id = f"anim-{esc_slug}-{i}"
+        stem = p.stem[: -len("_preview")] if p.stem.endswith("_preview") else p.stem
         speed_row = (
             f'<div class="speed-row">'
             f'<span class="speed-label">Speed</span>'
@@ -298,12 +312,15 @@ def render_actor(actor_dir: Path) -> str:
             f'<div class="anim-body">'
             f'<div class="asset-name-row"><div class="asset-name">{html.escape(p.name)} '
             f"{provenance_badge(prov_assets, 'animations', p.name)}</div>"
-            f"{sheet_link}{asset_actions_html(esc_slug, p.name)}</div>"
+            f"{sheet_link_for(stem)}{asset_actions_html(esc_slug, p.name)}</div>"
             f"{speed_row}"
-            f'<div class="sound-pills">{buttons or NO_SOUND_HTML}</div>'
-            f"{link_control}"
+            f"{sound_controls(i, img_id, p.name)}"
             f"</div></div>"
         )
+
+    for j, pkg in enumerate(packages):
+        i = len(animations) + j
+        anim_html += render_package_card(actor_dir, pkg, esc_slug, i, rel, sheet_link_for, sound_controls, prov_assets)
 
     sound_html = ""
     for p in unlinked_sounds:
@@ -371,7 +388,7 @@ def render_actor(actor_dir: Path) -> str:
       <div class="section-head">
         <div>
           <h2>{html.escape(slug)}</h2>
-          <div class="section-meta">{len(sprites)} sprites &middot; {len(animations)} animations &middot;
+          <div class="section-meta">{len(sprites)} sprites &middot; {len(animations) + len(packages)} animations &middot;
             {len(sounds)} sounds &middot; {len(unlinked_sounds)} unlinked</div>
         </div>
         <div class="section-actions">
@@ -394,7 +411,7 @@ def render_actor(actor_dir: Path) -> str:
       </div>
 
       <div class="group">
-        <div class="group-label group-label-lg">Animations <span class="count">{len(animations)}</span>
+        <div class="group-label group-label-lg">Animations <span class="count">{len(animations) + len(packages)}</span>
           <span class="group-hint">&mdash; play a sound against the gif to judge the pairing</span></div>
         <div class="anim-grid">{anim_html or "<em class='empty'>none yet</em>"}</div>
       </div>
@@ -406,6 +423,58 @@ def render_actor(actor_dir: Path) -> str:
       </div>
     </section>
     """
+
+
+def render_package_card(actor_dir, pkg, esc_slug, i, rel, sheet_link_for, sound_controls, prov_assets) -> str:
+    """A frame-package card: a canvas the FramePlayer in app.js drives from the manifest.
+
+    Everything the player needs (frame files, delays, loop) is fetched from
+    manifest.json at runtime, so the page stays static and carries no inline JS.
+    """
+    try:
+        manifest = animmeta.load_manifest(pkg)
+    except animmeta.ManifestError as exc:
+        return f'<div class="anim-card anim-card-broken">{html.escape(pkg.name)}: {html.escape(str(exc))}</div>'
+    name = pkg.name
+    esc_name = html.escape(name, quote=True)
+    canvas_id = f"anim-{esc_slug}-{i}"
+    width, height = manifest.frame_size or (256, 256)
+    n = len(manifest.frames)
+    loop_badge = f'<span class="badge badge-loop">{LOOP_ICON}</span>' if manifest.loop else ""
+    speed_options = "".join(
+        f'<option value="{v}">{label}</option>'
+        for v, label in (("1", "1&times;"), ("0.75", "0.75&times;"), ("0.5", "0.5&times;"), ("0.25", "0.25&times;"))
+    )
+    timing_src = html.escape(str(manifest.source.get("timing_source") or "manifest"))
+    return (
+        f'<div class="anim-card anim-card-frames" data-player data-slug="{esc_slug}" data-animation="{esc_name}" '
+        f'data-manifest="actors/{esc_slug}/animations/{esc_name}/manifest.json" '
+        f'data-frames-base="actors/{esc_slug}/animations/{esc_name}/frames/" data-canvas="{canvas_id}">'
+        f'<div class="anim-thumb checker">'
+        f'<canvas id="{canvas_id}" class="pixel-art" width="{width}" height="{height}"></canvas>'
+        f'<span class="badge badge-gif badge-frames">FRAMES</span>{loop_badge}'
+        f"</div>"
+        f'<div class="anim-body">'
+        f'<div class="asset-name-row"><div class="asset-name">{html.escape(name)} '
+        f"{provenance_badge(prov_assets, 'animations', name)}</div>"
+        f"{sheet_link_for(name)}{asset_actions_html(esc_slug, name)}</div>"
+        f'<div class="player-row">'
+        f'<button type="button" class="icon-btn fp-toggle" title="Play / pause" data-action="fp-toggle" data-canvas="{canvas_id}">{PLAY_ICON}</button>'
+        f'<button type="button" class="icon-btn" title="Previous frame" data-action="fp-step" data-dir="-1" data-canvas="{canvas_id}">&lsaquo;</button>'
+        f'<button type="button" class="icon-btn" title="Next frame" data-action="fp-step" data-dir="1" data-canvas="{canvas_id}">&rsaquo;</button>'
+        f'<input type="range" class="fp-scrub" min="0" max="{n - 1}" value="0" step="1" data-action="fp-scrub" data-canvas="{canvas_id}">'
+        f'<span class="fp-frame" data-role="frame">0 / {n}</span>'
+        f"</div>"
+        f'<div class="speed-row">'
+        f'<span class="speed-label">Speed</span>'
+        f'<select data-action="fp-speed" data-canvas="{canvas_id}">{speed_options}</select>'
+        f'<label class="fp-loop"><input type="checkbox" data-action="fp-loop" data-canvas="{canvas_id}"{" checked" if manifest.loop else ""}> Loop</label>'
+        f'<button type="button" class="btn-ghost fp-edit" data-action="fp-edit" data-canvas="{canvas_id}" title="Edit per-frame delays">Timing</button>'
+        f"</div>"
+        f'<div class="fp-meta">{n} frames &middot; {manifest.total_ms()} ms &middot; timing: {timing_src}</div>'
+        f"{sound_controls(i, canvas_id, name)}"
+        f"</div></div>"
+    )
 
 
 def render_topbar(actor_dirs: list[Path], active_slug: str | None) -> str:
@@ -464,7 +533,7 @@ def render_index_body(actor_dirs: list[Path]) -> str:
         f'<a class="actor-card" href="{ACTOR_PAGE_PREFIX}{html.escape(d.name, quote=True)}.html">'
         f"<h2>{html.escape(d.name)}</h2>"
         f'<div class="section-meta">{len(list_media(d / "sprites", IMAGE_EXTS))} sprites &middot; '
-        f"{len(list_media(d / 'animations', IMAGE_EXTS))} animations &middot; "
+        f"{animation_count(d)} animations &middot; "
         f"{len(list_media(d / 'sounds', AUDIO_EXTS))} sounds</div>"
         f"</a>"
         for d in actor_dirs

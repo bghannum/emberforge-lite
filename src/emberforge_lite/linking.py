@@ -7,7 +7,7 @@ stay in sync.
 import json
 from pathlib import Path
 
-from emberforge_lite import storage
+from emberforge_lite import animmeta, storage
 
 
 def _links_file(actors_dir: Path, slug: str) -> Path:
@@ -27,7 +27,7 @@ def add_link(actors_dir: Path, slug: str, anim_name: str, sound_name: str) -> No
     anim_path = actor_dir / "animations" / anim_name
     sound_path = actor_dir / "sounds" / sound_name
 
-    if not anim_path.is_file():
+    if not anim_path.is_file() and not animmeta.is_package(anim_path):
         raise FileNotFoundError(f"no such animation: {anim_path}")
     if not sound_path.is_file():
         raise FileNotFoundError(f"no such sound: {sound_path}")

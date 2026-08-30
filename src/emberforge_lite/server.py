@@ -32,6 +32,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import shutil
 import tempfile
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -39,7 +40,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from emberforge_lite import audiotools, build, generate, logs, media, provenance, storage
+from emberforge_lite import animmeta, audiotools, build, generate, logs, media, provenance, storage
 from emberforge_lite.gifspeed import slow_gif
 from emberforge_lite.linking import (
     add_link,
@@ -151,6 +152,24 @@ def sheet_for(actor_dir: Path, gif_name: str) -> Path | None:
     return candidate if candidate.is_file() else None
 
 
+def _animation_exists(actor_dir: Path, name: str) -> bool:
+    path = actor_dir / "animations" / name
+    return path.is_file() or animmeta.is_package(path)
+
+
+def _rename_sheet(actor_dir: Path, old_name: str, new_name: str) -> None:
+    """Move an animation's spritesheet along with it, if it has one."""
+    sheet = sheet_for(actor_dir, old_name)
+    if sheet is None or sheet_for(actor_dir, new_name) is not None:
+        return
+    stem = Path(new_name).stem
+    if stem.endswith("_preview"):
+        stem = stem[: -len("_preview")]
+    new_sheet_path = actor_dir / "sheets" / f"{stem}_sheet.png"
+    sheet.rename(new_sheet_path)
+    provenance.rename_asset(actor_dir, f"sheets/{sheet.name}", f"sheets/{new_sheet_path.name}")
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "emberforge-lite"
 
@@ -227,7 +246,10 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_actor_page(path)
             return
         if path.startswith("/actors/"):
-            self._serve_media(parsed.path)
+            if self._is_package_path(parsed.path):
+                self._serve_package(parsed.path)
+            else:
+                self._serve_media(parsed.path)
             return
         self._respond(404, {"error": "not found"})
 
@@ -293,6 +315,41 @@ class Handler(BaseHTTPRequestHandler):
             self._respond(404, {"error": "not found"})
             return
         self._send_bytes(safe.read_bytes(), CONTENT_TYPES[ext])
+
+    @staticmethod
+    def _is_package_path(path: str) -> bool:
+        parts = path.strip("/").split("/")
+        return len(parts) in (5, 6) and parts[0] == "actors" and parts[2] == "animations"
+
+    def _serve_package(self, path: str) -> None:
+        """Frame-package files: ``.../animations/<anim>/manifest.json`` and ``.../frames/<file>.png``.
+
+        Kept apart from _serve_media so JSON is only ever served from inside a
+        package and the four-part media route stays exactly as strict as it was.
+        """
+        parts = [unquote(p) for p in path.strip("/").split("/")]
+        slug = sanitize_slug(parts[1])
+        anim = sanitize_filename(parts[3])
+        if not slug or not anim:
+            self._respond(404, {"error": "not found"})
+            return
+        package = ACTORS_DIR / slug / "animations" / anim
+        if len(parts) == 5:
+            if parts[4] != animmeta.MANIFEST_NAME:
+                self._respond(404, {"error": "not found"})
+                return
+            candidate, content_type = animmeta.manifest_path(package), "application/json"
+        else:
+            filename = sanitize_filename(parts[5])
+            if parts[4] != animmeta.FRAMES_DIR or not filename or Path(filename).suffix.lower() != ".png":
+                self._respond(404, {"error": "not found"})
+                return
+            candidate, content_type = package / animmeta.FRAMES_DIR / filename, "image/png"
+        safe = self._resolved_under(ACTORS_DIR, candidate)
+        if safe is None or not safe.is_file() or not animmeta.is_package(package):
+            self._respond(404, {"error": "not found"})
+            return
+        self._send_bytes(safe.read_bytes(), content_type)
 
     @staticmethod
     def _resolved_under(root: Path, candidate: Path) -> Path | None:
@@ -481,12 +538,15 @@ class Handler(BaseHTTPRequestHandler):
             self._respond(400, {"error": "invalid slug or filename"})
             return
 
+        actor_dir = ACTORS_DIR / slug
         category = CATEGORY_BY_EXT.get(Path(filename).suffix.lower())
         if category is None:
+            if animmeta.is_package(actor_dir / "animations" / filename):
+                self._delete_package(slug, filename)
+                return
             self._respond(400, {"error": "unsupported extension"})
             return
 
-        actor_dir = ACTORS_DIR / slug
         target = actor_dir / category / filename
         if not target.is_file():
             self._respond(404, {"error": "no such asset"})
@@ -510,6 +570,20 @@ class Handler(BaseHTTPRequestHandler):
         logs.event("delete", actor=slug, operation="delete", outcome="ok", filename=filename)
         self._respond(200, {"deleted": filename, "actors": actor_count})
 
+    def _delete_package(self, slug: str, name: str) -> None:
+        actor_dir = ACTORS_DIR / slug
+        with storage.actor_lock(slug):
+            shutil.rmtree(actor_dir / "animations" / name)
+            provenance.remove_asset(actor_dir, f"animations/{name}")
+            remove_animation(ACTORS_DIR, slug, name)
+            sheet = sheet_for(actor_dir, name)
+            if sheet is not None:
+                sheet.unlink()
+                provenance.remove_asset(actor_dir, f"sheets/{sheet.name}")
+        actor_count = build.build()
+        logs.event("delete", actor=slug, operation="delete", outcome="ok", filename=name)
+        self._respond(200, {"deleted": name, "actors": actor_count})
+
     # -- POST -------------------------------------------------------------
 
     def do_POST(self):
@@ -524,6 +598,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_trim()
         elif path == "/rename":
             self._handle_rename()
+        elif path == "/timing":
+            self._guard(self._handle_timing)
         elif path == "/rebuild":
             self._respond(200, {"actors": build.build()})
         elif path == "/estimate":
@@ -598,7 +674,7 @@ class Handler(BaseHTTPRequestHandler):
         target = unique_path(actor_dir / "sounds", f"{src.stem}_{start_ms}-{end_ms}{src.suffix}")
         target.write_bytes(cut)
         linked = False
-        if link_to and (actor_dir / "animations" / link_to).is_file():
+        if link_to and _animation_exists(actor_dir, link_to):
             add_link(ACTORS_DIR, slug, link_to, target.name)
             linked = True
         self._respond(
@@ -618,13 +694,16 @@ class Handler(BaseHTTPRequestHandler):
             self._respond(400, {"error": "invalid slug or filename"})
             return
 
+        actor_dir = ACTORS_DIR / slug
+        if animmeta.is_package(actor_dir / "animations" / old_name):
+            self._rename_package(slug, old_name, new_name)
+            return
         category = CATEGORY_BY_EXT.get(Path(old_name).suffix.lower())
         new_category = CATEGORY_BY_EXT.get(Path(new_name).suffix.lower())
         if category is None or new_category != category:
             self._respond(400, {"error": "rename must keep the same file type"})
             return
 
-        actor_dir = ACTORS_DIR / slug
         old_path = actor_dir / category / old_name
         new_path = actor_dir / category / new_name
         if not old_path.is_file():
@@ -639,21 +718,53 @@ class Handler(BaseHTTPRequestHandler):
             provenance.rename_asset(actor_dir, f"{category}/{old_name}", f"{category}/{new_name}")
             if category == "animations":
                 rename_animation(ACTORS_DIR, slug, old_name, new_name)
-                sheet = sheet_for(actor_dir, old_name)
-                if sheet is not None:
-                    new_sheet = sheet_for(actor_dir, new_name)
-                    if new_sheet is None:
-                        stem = Path(new_name).stem
-                        if stem.endswith("_preview"):
-                            stem = stem[: -len("_preview")]
-                        new_sheet_path = actor_dir / "sheets" / f"{stem}_sheet.png"
-                        sheet.rename(new_sheet_path)
-                        provenance.rename_asset(actor_dir, f"sheets/{sheet.name}", f"sheets/{new_sheet_path.name}")
+                _rename_sheet(actor_dir, old_name, new_name)
             elif category == "sounds":
                 rename_sound(ACTORS_DIR, slug, old_name, new_name)
 
         logs.event("rename", actor=slug, operation="rename", outcome="ok", filename=new_name)
         self._respond(200, {"filename": new_name, "actors": build.build()})
+
+    def _rename_package(self, slug: str, old_name: str, new_name: str) -> None:
+        actor_dir = ACTORS_DIR / slug
+        new_name = new_name.replace(".", "-")  # a package is a directory, never "x.gif"
+        old_path = actor_dir / "animations" / old_name
+        new_path = actor_dir / "animations" / new_name
+        if new_path.exists():
+            self._respond(409, {"error": f"{new_name} already exists"})
+            return
+        with storage.actor_lock(slug):
+            old_path.rename(new_path)
+            manifest = animmeta.load_manifest(new_path)
+            manifest.name = new_name
+            animmeta.save_manifest(new_path, manifest)
+            provenance.rename_asset(actor_dir, f"animations/{old_name}", f"animations/{new_name}")
+            rename_animation(ACTORS_DIR, slug, old_name, new_name)
+            _rename_sheet(actor_dir, old_name, new_name)
+        logs.event("rename", actor=slug, operation="rename", outcome="ok", filename=new_name)
+        self._respond(200, {"filename": new_name, "actors": build.build()})
+
+    def _handle_timing(self) -> None:
+        """Persist edited per-frame delays (and loop) into a package manifest."""
+        payload = self._read_json()
+        slug = sanitize_slug(str(payload.get("slug", "")))
+        name = sanitize_filename(str(payload.get("animation", "")))
+        if not slug or not name:
+            raise ValueError("invalid slug or animation")
+        package = ACTORS_DIR / slug / "animations" / name
+        if not animmeta.is_package(package):
+            raise generate.GenerateError(404, "no such animation package")
+        with storage.actor_lock(slug):
+            manifest = animmeta.load_manifest(package)
+            delays = animmeta.validate_delays(payload.get("delays"), len(manifest.frames))
+            for frame, delay in zip(manifest.frames, delays):
+                frame.delay_ms = delay
+            if "loop" in payload:
+                manifest.loop = bool(payload["loop"])
+            manifest.source["timing_source"] = "edited"
+            animmeta.save_manifest(package, manifest)
+        logs.event("timing", actor=slug, operation="timing", outcome="ok", filename=name)
+        self._respond(200, {"animation": name, "total_ms": manifest.total_ms(), "actors": build.build()})
 
     def _handle_estimate(self) -> None:
         payload = self._read_json()
